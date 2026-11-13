@@ -1,0 +1,27 @@
+{
+  "app": "example-app",
+  "namespace": "cs-workers",
+  "state": "healthy",
+  "replicas": {
+    "desired": 1,
+    "updated": 1,
+    "ready": 1
+  },
+  "pods": [
+    {
+      "pod": "pod-1",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    }
+  ],
+  "events": [
+    {
+      "object": "pod-1",
+      "type": "Normal",
+      "reason": "Started",
+      "count": 1,
+      "message": "Started container example-app"
+    }
+  ]
+}

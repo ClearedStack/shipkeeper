@@ -1,0 +1,29 @@
+{
+  "app": "example-app",
+  "namespace": "cs-workers",
+  "state": "degraded",
+  "replicas": {
+    "desired": 1,
+    "updated": 1,
+    "ready": 0
+  },
+  "pods": [
+    {
+      "pod": "pod-1",
+      "phase": "Pending",
+      "ready": false,
+      "restarts": 0,
+      "reason": "Unschedulable",
+      "message": "0/3 nodes are available: 3 Insufficient memory. Preemption on [node] is pending."
+    }
+  ],
+  "events": [
+    {
+      "object": "pod-1",
+      "type": "Warning",
+      "reason": "FailedScheduling",
+      "count": 7,
+      "message": "0/3 nodes are available: 3 Insufficient memory."
+    }
+  ]
+}

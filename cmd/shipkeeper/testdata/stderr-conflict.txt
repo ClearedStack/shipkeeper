@@ -1,0 +1,2 @@
+E_NEEDS_SUBTOOL: another field manager owns a field Shipkeeper sets, with a different value; nothing was overwritten
+conflicting fields: .spec.replicas

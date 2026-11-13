@@ -1,0 +1,7 @@
+name: example-app
+namespace: cs-workers
+image: example-app
+digest: sha512:4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a
+replicas: 2
+port: 8080
+memory: 32Mi

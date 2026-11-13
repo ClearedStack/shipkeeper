@@ -1,0 +1,8 @@
+{
+  "deployment": {"metadata":{"name":"example-app","generation":4},"spec":{"replicas":0},
+    "status":{"observedGeneration":4}},
+  "pods": [],
+  "events": [
+    {"metadata":{"name":"e1"},"involvedObject":{"kind":"Deployment","name":"example-app"},"type":"Normal","reason":"ScalingReplicaSet","message":"Scaled down replica set example-app-6c9d7f5b8 to 0 from 1","count":1,"lastTimestamp":"2030-01-01T00:10:00Z"}
+  ]
+}

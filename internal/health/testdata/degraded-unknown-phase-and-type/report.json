@@ -1,0 +1,27 @@
+{
+  "app": "example-app",
+  "namespace": "cs-workers",
+  "state": "degraded",
+  "replicas": {
+    "desired": 1,
+    "updated": 1,
+    "ready": 0
+  },
+  "pods": [
+    {
+      "pod": "pod-1",
+      "phase": "Unknown",
+      "ready": false,
+      "restarts": 0
+    }
+  ],
+  "events": [
+    {
+      "object": "pod-1",
+      "type": "Other",
+      "reason": "SeenOn [node]",
+      "count": 1,
+      "message": ""
+    }
+  ]
+}

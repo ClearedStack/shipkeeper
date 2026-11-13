@@ -1,0 +1,22 @@
+{
+  "app": "example-app",
+  "namespace": "cs-workers",
+  "state": "degraded",
+  "replicas": {
+    "desired": 1,
+    "updated": 1,
+    "ready": 0
+  },
+  "pods": [
+    {
+      "pod": "pod-1",
+      "phase": "Failed",
+      "ready": false,
+      "restarts": 1,
+      "reason": "Error",
+      "exitCode": 3,
+      "message": "listen tcp [address]:8080: bind: address already in use; host pod-1; peer [internal-name]"
+    }
+  ],
+  "events": []
+}

@@ -1,0 +1,12 @@
+# Comments and blank lines are allowed.
+
+name: example-app          # a trailing comment
+namespace: "cs-workers"
+image: 'tools/example-app'
+digest: sha256:4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a
+replicas: 2
+port: 8080
+memory: 32Mi
+allowFrom:
+  - cs-workers/other-app
+  - clearedstack/muster

@@ -1,0 +1,52 @@
+[
+  {
+    "metadata": {"name": "example-app-6c9d7f5b8-h8kxw.17a1"},
+    "involvedObject": {"kind": "Pod", "name": "example-app-6c9d7f5b8-h8kxw"},
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned cs-workers/example-app-6c9d7f5b8-h8kxw to worker-node-02.rack1.example.internal",
+    "count": 1,
+    "lastTimestamp": "2030-01-01T00:00:01Z",
+    "source": {"component": "default-scheduler"}
+  },
+  {
+    "metadata": {"name": "example-app-6c9d7f5b8-h8kxw.17a2"},
+    "involvedObject": {"kind": "Pod", "name": "example-app-6c9d7f5b8-h8kxw"},
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"lazarette.clearedstack.svc.cluster.local:5000/example-app@sha256:4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a\" already present on machine",
+    "count": 5,
+    "lastTimestamp": "2030-01-01T00:00:02Z",
+    "source": {"component": "kubelet", "host": "worker-node-02.rack1.example.internal"}
+  },
+  {
+    "metadata": {"name": "example-app-6c9d7f5b8-h8kxw.17a3"},
+    "involvedObject": {"kind": "Pod", "name": "example-app-6c9d7f5b8-h8kxw"},
+    "type": "Warning",
+    "reason": "Unhealthy",
+    "message": "Readiness probe failed: dial tcp 10.42.1.9:8080: connect: connection refused",
+    "count": 12,
+    "lastTimestamp": "2030-01-01T00:03:00Z",
+    "source": {"component": "kubelet", "host": "worker-node-02.rack1.example.internal"}
+  },
+  {
+    "metadata": {"name": "example-app.17a0"},
+    "involvedObject": {"kind": "Deployment", "name": "example-app"},
+    "type": "Normal",
+    "reason": "ScalingReplicaSet",
+    "message": "Scaled up replica set example-app-6c9d7f5b8 to 2",
+    "count": 1,
+    "lastTimestamp": "2030-01-01T00:00:00Z",
+    "source": {"component": "deployment-controller"}
+  },
+  {
+    "metadata": {"name": "other-app-5d5d5d5d5-aaaaa.17b0"},
+    "involvedObject": {"kind": "Pod", "name": "other-app-5d5d5d5d5-aaaaa"},
+    "type": "Warning",
+    "reason": "Failed",
+    "message": "an event about a different app, which must not appear in the report",
+    "count": 1,
+    "lastTimestamp": "2030-01-01T00:02:00Z",
+    "source": {"component": "kubelet", "host": "worker-node-09.rack3.example.internal"}
+  }
+]

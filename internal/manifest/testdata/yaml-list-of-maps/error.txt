@@ -1,0 +1,1 @@
+E_NEEDS_SUBTOOL: app.yaml uses a YAML feature outside the small subset Shipkeeper reads (app.yaml line 9)
