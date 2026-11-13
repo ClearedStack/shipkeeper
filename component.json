@@ -1,0 +1,26 @@
+{
+  "slug": "shipkeeper",
+  "name": "Shipkeeper",
+  "formerly": "cs-store",
+  "earlierNames": [
+    "Bosun"
+  ],
+  "kind": "control-plane",
+  "namespace": "clearedstack",
+  "responsibility": "Deploys what was built, keeps it in its intended state and reports its health with cluster details removed.",
+  "interfaces": [
+    "Kubernetes API, using server-side apply",
+    "Reads manifests from Plainforge and image digests from Lazarette",
+    "Sends cleaned health reports to Muster"
+  ],
+  "repository": "shipkeeper",
+  "image": "shipkeeper",
+  "dependsOn": [
+    "plainforge",
+    "lazarette",
+    "muster"
+  ],
+  "memory": "48 MiB",
+  "version": "v0.1.0-draft",
+  "subTools": []
+}
