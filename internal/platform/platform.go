@@ -1,7 +1,5 @@
 // Package platform holds the three neighbours Shipkeeper depends on, each
-// behind a small interface, with an in-memory stand-in for each. None of
-// the real components exists yet; the stand-ins follow SPEC.md and are what
-// the tests and the command line use.
+// behind a small interface, with an in-memory stand-in for each.
 package platform
 
 import (
@@ -18,11 +16,23 @@ type Plainforge interface {
 	AppManifest(ctx context.Context, app string) ([]byte, error)
 }
 
+// PlainforgeWriter is optionally implemented by Plainforge clients that can
+// commit an updated app.yaml with [skip-ci] during lifecycle actions.
+type PlainforgeWriter interface {
+	UpdateAppManifest(ctx context.Context, app string, data []byte, summary string) error
+}
+
 // Lazarette is the registry that holds signed image digests.
 type Lazarette interface {
 	// HasSignedDigest reports whether digest is one of the signed digests
 	// retained for image.
 	HasSignedDigest(ctx context.Context, image, digest string) (bool, error)
+}
+
+// RetainedLazarette is optionally implemented by Lazarette clients that can
+// list the retained signed digests for an image in oldest-to-newest order.
+type RetainedLazarette interface {
+	RetainedDigests(ctx context.Context, image string) ([]string, error)
 }
 
 // Muster receives cleaned health reports.
@@ -38,7 +48,19 @@ func (m MemoryPlainforge) AppManifest(_ context.Context, app string) ([]byte, er
 	if !ok {
 		return nil, errs.PlainforgeNoApp
 	}
-	return data, nil
+	cp := make([]byte, len(data))
+	copy(cp, data)
+	return cp, nil
+}
+
+func (m MemoryPlainforge) UpdateAppManifest(_ context.Context, app string, data []byte, _ string) error {
+	if _, ok := m[app]; !ok {
+		return errs.PlainforgeNoApp
+	}
+	cp := make([]byte, len(data))
+	copy(cp, data)
+	m[app] = cp
+	return nil
 }
 
 // Retained is how many versions Lazarette keeps per app (SPEC.md).
@@ -75,6 +97,20 @@ func (l *MemoryLazarette) HasSignedDigest(_ context.Context, image, digest strin
 		}
 	}
 	return false, nil
+}
+
+// RetainedDigests returns a copy of the retained digests for image in
+// oldest-to-newest order (at most Retained entries).
+func (l *MemoryLazarette) RetainedDigests(_ context.Context, image string) ([]string, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	src := l.digests[image]
+	if len(src) == 0 {
+		return nil, nil
+	}
+	out := make([]string, len(src))
+	copy(out, src)
+	return out, nil
 }
 
 // MemoryMuster is the stand-in for Muster. It keeps what it was sent, or

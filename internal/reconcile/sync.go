@@ -14,6 +14,12 @@ import (
 	"github.com/ClearedStack/shipkeeper/internal/registry"
 )
 
+// BootstrapDigest is the all-zero placeholder committed in template app.yaml
+// manifests before Keelworks builds and signs the first image. SyncAll treats
+// a manifest carrying BootstrapDigest as not yet pinned in Git and observes any
+// live bootstrap workload in the cluster instead of reporting DigestMissing.
+const BootstrapDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
 var pinnedDigestRE = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 // SyncSummary describes one full reconciliation pass across the platform's
@@ -136,6 +142,10 @@ func (r *Reconciler) syncOne(ctx context.Context, comp registry.Component) (rep 
 	}
 	if app.Namespace != comp.Namespace {
 		return degradedWithCode(comp.Slug, errs.ManifestNamespace), false, true, errs.ManifestNamespace
+	}
+	if app.Digest == BootstrapDigest {
+		rep, ok, obsErr := r.observeUnmanaged(ctx, comp)
+		return rep, false, ok, obsErr
 	}
 
 	signed, err := r.Lazarette.HasSignedDigest(ctx, app.Image, app.Digest)

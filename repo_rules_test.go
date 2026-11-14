@@ -118,9 +118,11 @@ func TestDeployManifestsAndKoConfig(t *testing.T) {
 	}
 	requiredInShipkeeper := []string{
 		"namespace: clearedstack",
+		"priorityClassName: clearedstack-high",
 		"serviceAccountName: shipkeeper",
 		"automountServiceAccountToken: true",
 		"image: lazarette.clearedstack.svc.cluster.local:5000/shipkeeper@sha256:",
+		"http://plainforge.clearedstack.svc.cluster.local:8080",
 		"COSIGN_PUB_FILE",
 		"secretName: keelworks-cosign",
 		"runAsNonRoot: true",
@@ -139,6 +141,22 @@ func TestDeployManifestsAndKoConfig(t *testing.T) {
 	for _, want := range requiredInShipkeeper {
 		if !strings.Contains(skText, want) {
 			t.Errorf("deploy/shipkeeper.yaml is missing %q", want)
+		}
+	}
+
+	pc, err := os.ReadFile("deploy/priorityclass.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pcText := string(pc)
+	for _, want := range []string{
+		"kind: PriorityClass",
+		"name: clearedstack-high",
+		"value: 100000",
+		"preemptionPolicy: PreemptLowerPriority",
+	} {
+		if !strings.Contains(pcText, want) {
+			t.Errorf("deploy/priorityclass.yaml is missing %q", want)
 		}
 	}
 

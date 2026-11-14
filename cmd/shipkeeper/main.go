@@ -1,10 +1,15 @@
-// Command shipkeeper runs Shipkeeper in one of two modes:
+// Command shipkeeper runs Shipkeeper in three modes:
 //
 //   - "shipkeeper serve [flags]" runs the in-cluster control-plane service:
 //     reconciles all seventeen platform workloads from Plainforge and
 //     Lazarette with server-side apply, reports their cleaned contract v1
 //     health to Muster, retries delivery across Muster restarts, and answers
 //     GET /healthz for kubelet probes.
+//
+//   - "shipkeeper <upgrade|pause|resume|rollback> -app <name> [flags]" updates
+//     app.yaml in Plainforge with [skip-ci], applies the rendered Kubernetes
+//     objects with server-side apply, delivers contract v1 health to Muster,
+//     and prints the sanitized observation report on standard output.
 //
 //   - "shipkeeper -app <name> -manifest <file> -digests <file> [flags]" runs
 //     one standalone pass for a single app from local files and prints the
@@ -40,7 +45,13 @@ import (
 	"github.com/ClearedStack/shipkeeper/internal/reconcile"
 )
 
-const serviceAccount = "/var/run/secrets/kubernetes.io/serviceaccount/"
+const (
+	serviceAccount       = "/var/run/secrets/kubernetes.io/serviceaccount/"
+	defaultPlainforgeURL = "http://plainforge.clearedstack.svc.cluster.local:8080"
+	defaultLazaretteURL  = "http://lazarette.clearedstack.svc.cluster.local:5000"
+	defaultRegistryHost  = "lazarette.clearedstack.svc.cluster.local:5000"
+	defaultMusterURL     = "http://muster.clearedstack.svc.cluster.local:8080"
+)
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -48,8 +59,8 @@ func main() {
 	os.Exit(runContext(ctx, os.Args[1:], os.Stdout, os.Stderr))
 }
 
-// stdoutMuster stands in for Muster in standalone file mode by printing the
-// cleaned observation report.
+// stdoutMuster stands in for Muster in standalone and CLI lifecycle modes by
+// printing the cleaned observation report.
 type stdoutMuster struct{ w io.Writer }
 
 func (m stdoutMuster) SendHealth(_ context.Context, r health.Report) error {
@@ -66,8 +77,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	if len(args) > 0 && args[0] == "serve" {
-		return runServe(ctx, args[1:], stdout, stderr)
+	if len(args) > 0 {
+		switch args[0] {
+		case "serve":
+			return runServe(ctx, args[1:], stdout, stderr)
+		case "upgrade", "pause", "resume", "rollback":
+			return runLifecycle(ctx, args[0], args[1:], stdout, stderr)
+		}
 	}
 	return runOnce(ctx, args, stdout, stderr)
 }
@@ -81,7 +97,7 @@ func runOnce(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	kubeURL := fs.String("kube-url", "", "Kubernetes API URL; empty means use the in-cluster service account")
 	tokenFile := fs.String("kube-token-file", "", "file holding the bearer token")
 	caFile := fs.String("kube-ca-file", "", "file holding the API server's CA certificate")
-	registryHost := fs.String("registry", "lazarette.clearedstack.svc.cluster.local:5000", "registry host images are pulled from")
+	registryHost := fs.String("registry", defaultRegistryHost, "registry host images are pulled from")
 	domain := fs.String("cluster-domain", "cluster.local", "the cluster's DNS domain")
 	timeout := fs.Duration("timeout", 10*time.Second, "time allowed for each request")
 	if err := fs.Parse(args); err != nil {
@@ -100,17 +116,88 @@ func runOnce(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runLifecycle(ctx context.Context, action string, args []string, stdout, stderr io.Writer) int {
+	defaultTimeout, timeoutOK := durationEnv("SHIPKEEPER_TIMEOUT", 10*time.Second)
+
+	fs := flag.NewFlagSet("shipkeeper "+action, flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	app := fs.String("app", "", "name of the app")
+	var replicas *int
+	if action == "resume" {
+		replicas = fs.Int("replicas", 1, "desired replica count (1..10)")
+	}
+	var targetDigest *string
+	if action == "rollback" {
+		targetDigest = fs.String("to", "", "target signed sha256 digest; empty rolls back one step")
+	}
+	plainforgeURL := fs.String("plainforge-url", envOr("PLAINFORGE_URL", defaultPlainforgeURL), "Plainforge base URL")
+	lazaretteURL := fs.String("lazarette-url", envOr("LAZARETTE_URL", defaultLazaretteURL), "Lazarette HTTP API URL")
+	cosignPubFile := fs.String("cosign-pub-file", os.Getenv("COSIGN_PUB_FILE"), "file holding the ECDSA P-256 cosign public key PEM")
+	registryHost := fs.String("registry", envOr("LAZARETTE_REGISTRY", defaultRegistryHost), "registry host images are pulled from")
+	musterURL := fs.String("muster-url", envOr("MUSTER_URL", defaultMusterURL), "Muster HTTP API URL, or off")
+	musterTokenFile := fs.String("muster-token-file", os.Getenv("MUSTER_TOKEN_FILE"), "file holding the bearer token presented to Muster")
+	kubeURL := fs.String("kube-url", os.Getenv("KUBE_URL"), "Kubernetes API URL; empty means use the in-cluster service account")
+	kubeTokenFile := fs.String("kube-token-file", os.Getenv("KUBE_TOKEN_FILE"), "file holding the Kubernetes bearer token")
+	kubeCAFile := fs.String("kube-ca-file", os.Getenv("KUBE_CA_FILE"), "file holding the Kubernetes API CA certificate")
+	domain := fs.String("cluster-domain", envOr("SHIPKEEPER_CLUSTER_DOMAIN", "cluster.local"), "the cluster's DNS domain")
+	timeout := fs.Duration("timeout", defaultTimeout, "time allowed for each HTTP request")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if !timeoutOK || *app == "" {
+		writeCatalogueError(stderr, errs.Config)
+		return 1
+	}
+
+	rec, err := buildServe(serveConfig{
+		plainforgeURL:   *plainforgeURL,
+		lazaretteURL:    *lazaretteURL,
+		cosignPubFile:   *cosignPubFile,
+		registryHost:    *registryHost,
+		musterURL:       *musterURL,
+		musterTokenFile: *musterTokenFile,
+		kubeURL:         *kubeURL,
+		kubeTokenFile:   *kubeTokenFile,
+		kubeCAFile:      *kubeCAFile,
+		clusterDomain:   *domain,
+		interval:        time.Second,
+		timeout:         *timeout,
+		allowMusterOff:  true,
+	})
+	if err != nil {
+		writeCatalogueError(stderr, err)
+		return 1
+	}
+	rec.Muster = stdoutMuster{stdout}
+
+	switch action {
+	case "upgrade":
+		_, err = rec.Upgrade(ctx, *app)
+	case "pause":
+		_, err = rec.Pause(ctx, *app)
+	case "resume":
+		_, err = rec.Resume(ctx, *app, *replicas)
+	case "rollback":
+		_, err = rec.Rollback(ctx, *app, *targetDigest)
+	}
+	if err != nil {
+		writeCatalogueError(stderr, err)
+		return 1
+	}
+	return 0
+}
+
 func runServe(ctx context.Context, args []string, _, stderr io.Writer) int {
 	defaultInterval, intervalOK := durationEnv("SHIPKEEPER_INTERVAL", 30*time.Second)
 	defaultTimeout, timeoutOK := durationEnv("SHIPKEEPER_TIMEOUT", 10*time.Second)
 
 	fs := flag.NewFlagSet("shipkeeper serve", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	plainforgeURL := fs.String("plainforge-url", envOr("PLAINFORGE_URL", "http://plainforge.clearedstack.svc.cluster.local"), "Plainforge base URL")
-	lazaretteURL := fs.String("lazarette-url", envOr("LAZARETTE_URL", "http://lazarette.clearedstack.svc.cluster.local:5000"), "Lazarette HTTP API URL")
+	plainforgeURL := fs.String("plainforge-url", envOr("PLAINFORGE_URL", defaultPlainforgeURL), "Plainforge base URL")
+	lazaretteURL := fs.String("lazarette-url", envOr("LAZARETTE_URL", defaultLazaretteURL), "Lazarette HTTP API URL")
 	cosignPubFile := fs.String("cosign-pub-file", os.Getenv("COSIGN_PUB_FILE"), "file holding the ECDSA P-256 cosign public key PEM")
-	registryHost := fs.String("registry", envOr("LAZARETTE_REGISTRY", "lazarette.clearedstack.svc.cluster.local:5000"), "registry host images are pulled from")
-	musterURL := fs.String("muster-url", envOr("MUSTER_URL", "http://muster.clearedstack.svc.cluster.local:8080"), "Muster HTTP API URL")
+	registryHost := fs.String("registry", envOr("LAZARETTE_REGISTRY", defaultRegistryHost), "registry host images are pulled from")
+	musterURL := fs.String("muster-url", envOr("MUSTER_URL", defaultMusterURL), "Muster HTTP API URL")
 	musterTokenFile := fs.String("muster-token-file", os.Getenv("MUSTER_TOKEN_FILE"), "file holding the bearer token presented to Muster")
 	kubeURL := fs.String("kube-url", os.Getenv("KUBE_URL"), "Kubernetes API URL; empty means use the in-cluster service account")
 	kubeTokenFile := fs.String("kube-token-file", os.Getenv("KUBE_TOKEN_FILE"), "file holding the Kubernetes bearer token")
@@ -193,10 +280,12 @@ type serveConfig struct {
 	clusterDomain   string
 	interval        time.Duration
 	timeout         time.Duration
+	allowMusterOff  bool
 }
 
 func buildServe(cfg serveConfig) (*reconcile.Reconciler, error) {
-	if cfg.plainforgeURL == "" || cfg.lazaretteURL == "" || cfg.musterURL == "" ||
+	musterOff := cfg.allowMusterOff && cfg.musterURL == "off"
+	if cfg.plainforgeURL == "" || cfg.lazaretteURL == "" || (!musterOff && cfg.musterURL == "") ||
 		!manifest.RegistryRE.MatchString(cfg.registryHost) || cfg.interval <= 0 || cfg.timeout <= 0 {
 		return nil, errs.Config
 	}
@@ -217,7 +306,7 @@ func buildServe(cfg serveConfig) (*reconcile.Reconciler, error) {
 	if mTokFile == "" {
 		mTokFile = resolvedTokenFile
 	}
-	if mTokFile != "" {
+	if !musterOff && mTokFile != "" {
 		if raw, err := os.ReadFile(mTokFile); err != nil || strings.TrimSpace(string(raw)) == "" {
 			return nil, errs.Config
 		}
@@ -230,6 +319,14 @@ func buildServe(cfg serveConfig) (*reconcile.Reconciler, error) {
 			IdleConnTimeout:     60 * time.Second,
 		},
 	}
+	var contractMuster muster.Sender
+	if !musterOff {
+		contractMuster = &muster.Client{
+			BaseURL:   cfg.musterURL,
+			TokenFile: mTokFile,
+			HTTP:      sharedHTTP,
+		}
+	}
 	return &reconcile.Reconciler{
 		Plainforge: &plainforge.Client{
 			BaseURL: cfg.plainforgeURL,
@@ -240,14 +337,10 @@ func buildServe(cfg serveConfig) (*reconcile.Reconciler, error) {
 			HTTP:          sharedHTTP,
 			PublicKeyFile: cfg.cosignPubFile,
 		},
-		ContractMuster: &muster.Client{
-			BaseURL:   cfg.musterURL,
-			TokenFile: mTokFile,
-			HTTP:      sharedHTTP,
-		},
-		Cluster:       kubeClient,
-		Registry:      cfg.registryHost,
-		ClusterDomain: cfg.clusterDomain,
+		ContractMuster: contractMuster,
+		Cluster:        kubeClient,
+		Registry:       cfg.registryHost,
+		ClusterDomain:  cfg.clusterDomain,
 	}, nil
 }
 

@@ -111,33 +111,39 @@ func pickManifest(files map[string][]byte, app string) ([]byte, error) {
 }
 
 func (c *Client) fetchRef(ctx context.Context, repo, targetRef string) (string, error) {
-	endpoint := strings.TrimRight(c.BaseURL, "/") + "/" + repo + ".git/info/refs?service=git-upload-pack"
+	oid, _, err := c.fetchServiceRef(ctx, repo, "git-upload-pack", targetRef)
+	return oid, err
+}
+
+func (c *Client) fetchServiceRef(ctx context.Context, repo, service, targetRef string) (string, []string, error) {
+	endpoint := strings.TrimRight(c.BaseURL, "/") + "/" + repo + ".git/info/refs?service=" + service
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return "", errs.Config
+		return "", nil, errs.Config
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return "", transportError(err)
+		return "", nil, transportError(err)
 	}
 	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxRefsBytes+1))
 	if err != nil {
-		return "", transportError(err)
+		return "", nil, transportError(err)
 	}
 	if len(raw) > maxRefsBytes {
-		return "", errs.PlainforgeBadReply
+		return "", nil, errs.PlainforgeBadReply
 	}
 	if err := checkStatus(resp.StatusCode); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
+	var caps []string
 	r := bytes.NewReader(raw)
 	for {
 		pkt, flush, eof, err := readPktLine(r)
 		if err != nil {
-			return "", errs.PlainforgeBadReply
+			return "", nil, errs.PlainforgeBadReply
 		}
 		if eof {
 			break
@@ -147,21 +153,35 @@ func (c *Client) fetchRef(ctx context.Context, repo, targetRef string) (string, 
 		}
 		line := pkt
 		if i := bytes.IndexByte(line, 0); i >= 0 {
+			if caps == nil {
+				caps = strings.Fields(string(line[i+1:]))
+			}
 			line = line[:i]
 		}
 		line = bytes.TrimSuffix(line, []byte("\n"))
 		oid, name, ok := strings.Cut(string(line), " ")
 		if !ok || !oidRE.MatchString(oid) {
-			return "", errs.PlainforgeBadReply
+			return "", nil, errs.PlainforgeBadReply
 		}
 		if name == targetRef {
-			return oid, nil
+			if oid == strings.Repeat("0", 40) {
+				return "", nil, errs.PlainforgeNoApp
+			}
+			return oid, caps, nil
 		}
 	}
-	return "", errs.PlainforgeNoApp
+	return "", nil, errs.PlainforgeNoApp
 }
 
 func (c *Client) fetchManifestsAt(ctx context.Context, repo, commitOID string) (map[string][]byte, error) {
+	objs, err := c.fetchObjectsAt(ctx, repo, commitOID)
+	if err != nil {
+		return nil, err
+	}
+	return extractAppFiles(objs, commitOID)
+}
+
+func (c *Client) fetchObjectsAt(ctx context.Context, repo, commitOID string) (map[string]gitObject, error) {
 	var body bytes.Buffer
 	writePktString(&body, fmt.Sprintf("want %s\n", commitOID))
 	body.WriteString("0000")
@@ -200,7 +220,7 @@ func (c *Client) fetchManifestsAt(ctx context.Context, repo, commitOID string) (
 	if err != nil {
 		return nil, errs.PlainforgeBadReply
 	}
-	return extractAppFiles(objs, commitOID)
+	return objs, nil
 }
 
 func checkStatus(status int) error {
