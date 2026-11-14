@@ -1,0 +1,20 @@
+{
+  "app": "example-app",
+  "namespace": "cs-workers",
+  "state": "paused",
+  "replicas": {
+    "desired": 0,
+    "updated": 0,
+    "ready": 0
+  },
+  "pods": [],
+  "events": [
+    {
+      "object": "deployment",
+      "type": "Normal",
+      "reason": "ScalingReplicaSet",
+      "count": 1,
+      "message": "Scaled down replica set example-app-6c9d7f5b8 to 0 from 1"
+    }
+  ]
+}

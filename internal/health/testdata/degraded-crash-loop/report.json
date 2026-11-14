@@ -1,0 +1,49 @@
+{
+  "app": "example-app",
+  "namespace": "cs-workers",
+  "state": "degraded",
+  "replicas": {
+    "desired": 2,
+    "updated": 2,
+    "ready": 1
+  },
+  "pods": [
+    {
+      "pod": "pod-1",
+      "phase": "Running",
+      "ready": false,
+      "restarts": 4,
+      "reason": "CrashLoopBackOff",
+      "message": "back-off 40s restarting failed container=example-app pod=pod-1_cs-workers(0f0e0d0c-1111-2222-3333-444455556666)"
+    },
+    {
+      "pod": "pod-2",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    }
+  ],
+  "events": [
+    {
+      "object": "replicaset",
+      "type": "Normal",
+      "reason": "SuccessfulCreate",
+      "count": 1,
+      "message": "Created pod: pod-1"
+    },
+    {
+      "object": "pod-1",
+      "type": "Normal",
+      "reason": "Scheduled",
+      "count": 1,
+      "message": "Successfully assigned cs-workers/pod-1 to [node]"
+    },
+    {
+      "object": "pod-1",
+      "type": "Warning",
+      "reason": "Unhealthy",
+      "count": 12,
+      "message": "Readiness probe failed: dial tcp [address]:8080: connect: connection refused"
+    }
+  ]
+}

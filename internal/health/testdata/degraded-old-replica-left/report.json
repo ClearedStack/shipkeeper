@@ -1,0 +1,19 @@
+{
+  "app": "example-app",
+  "namespace": "cs-workers",
+  "state": "degraded",
+  "replicas": {
+    "desired": 1,
+    "updated": 1,
+    "ready": 1
+  },
+  "pods": [
+    {
+      "pod": "pod-1",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    }
+  ],
+  "events": []
+}

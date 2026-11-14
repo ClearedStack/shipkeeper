@@ -1,0 +1,1 @@
+E_NEEDS_SUBTOOL: app.yaml names a namespace Shipkeeper does not manage (app.yaml line 2)

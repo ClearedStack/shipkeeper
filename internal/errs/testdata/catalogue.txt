@@ -1,0 +1,32 @@
+E_PARSE: app.yaml holds bytes that are not valid text
+E_PARSE: app.yaml is empty
+E_PARSE: app.yaml is indented with a tab
+E_PARSE: app.yaml has a line at an indentation that fits nothing above it
+E_PARSE: app.yaml has a line that is not a key followed by a colon
+E_PARSE: app.yaml gives the same key twice
+E_PARSE: app.yaml has a quoted value that is not closed properly
+E_PARSE: app.yaml has a value with a colon in it that is not quoted
+E_NEEDS_SUBTOOL: app.yaml uses a YAML feature outside the small subset Shipkeeper reads
+E_PARSE: app.yaml has a field of the wrong shape
+E_PARSE: app.yaml is missing a required field
+E_PARSE: app.yaml has a field value that is not in the accepted form
+E_NEEDS_SUBTOOL: app.yaml has a field Shipkeeper does not know
+E_NEEDS_SUBTOOL: app.yaml has an unquoted word that YAML readers disagree about; quote it
+E_NEEDS_SUBTOOL: app.yaml names a namespace Shipkeeper does not manage
+E_PARSE: app.yaml describes a different app from the one asked for
+E_TIMEOUT: Plainforge did not answer in time
+E_NEEDS_SUBTOOL: Plainforge has no app.yaml for this app
+E_TIMEOUT: Lazarette did not answer in time
+E_NEEDS_SUBTOOL: the digest in app.yaml is not among the signed digests Lazarette holds; nothing was applied
+E_TIMEOUT: Muster did not answer in time; the health report was not delivered
+E_TIMEOUT: the Kubernetes API did not answer in time
+E_TIMEOUT: the Kubernetes API could not be reached
+E_PARSE: the Kubernetes API sent a reply that could not be read
+E_NEEDS_SUBTOOL: the Kubernetes API refused the request
+E_NEEDS_SUBTOOL: the Kubernetes API answered in a way Shipkeeper has no rule for
+E_NEEDS_SUBTOOL: another field manager owns a field Shipkeeper sets, with a different value; nothing was overwritten
+E_NEEDS_SUBTOOL: Shipkeeper was asked to apply a kind of object it does not manage
+E_PARSE: the Deployment read back from the cluster is missing its replica count
+E_NEEDS_SUBTOOL: the health report still held a cluster detail after cleaning; it was not sent
+E_PARSE: Shipkeeper was started with a setting that is missing or not in the accepted form
+E_NEEDS_SUBTOOL: something happened that Shipkeeper has no rule for

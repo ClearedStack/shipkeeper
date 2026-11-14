@@ -1,0 +1,7 @@
+name: example-plane
+namespace: clearedstack
+image: example-plane
+digest: sha256:4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a4e7a
+replicas: 1
+port: 9000
+memory: 48Mi

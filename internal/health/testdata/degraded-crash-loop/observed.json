@@ -1,0 +1,18 @@
+{
+  "deployment": {"metadata":{"name":"example-app","generation":2},"spec":{"replicas":2},
+    "status":{"observedGeneration":2,"replicas":2,"updatedReplicas":2,"readyReplicas":1,"availableReplicas":1}},
+  "pods": [
+    {"metadata":{"name":"example-app-6c9d7f5b8-q4zt2"},"spec":{"nodeName":"worker-node-07.rack3.example.internal"},"status":{"phase":"Running","hostIP":"10.20.30.47","podIP":"10.42.3.18","podIPs":[{"ip":"10.42.3.18"},{"ip":"fd00:42:3::18"}],"conditions":[{"type":"Ready","status":"True"}],"containerStatuses":[{"name":"example-app","restartCount":0,"state":{"running":{}}}]}},
+    {"metadata":{"name":"example-app-6c9d7f5b8-h8kxw"},"spec":{"nodeName":"worker-node-02.rack1.example.internal"},
+     "status":{"phase":"Running","hostIP":"10.20.30.42","podIP":"10.42.1.9",
+       "conditions":[{"type":"Ready","status":"False"}],
+       "containerStatuses":[{"name":"example-app","restartCount":4,"state":{"waiting":{"reason":"CrashLoopBackOff","message":"back-off 40s restarting failed container=example-app pod=example-app-6c9d7f5b8-h8kxw_cs-workers(0f0e0d0c-1111-2222-3333-444455556666)"}}}]}}
+  ],
+  "events": [
+    {"metadata":{"name":"e3"},"involvedObject":{"kind":"Pod","name":"example-app-6c9d7f5b8-h8kxw"},"type":"Warning","reason":"Unhealthy","message":"Readiness probe failed: dial tcp 10.42.1.9:8080: connect: connection refused","count":12,"lastTimestamp":"2030-01-01T00:03:00Z","source":{"host":"worker-node-02.rack1.example.internal"}},
+    {"metadata":{"name":"e1"},"involvedObject":{"kind":"Pod","name":"example-app-6c9d7f5b8-h8kxw"},"type":"Normal","reason":"Scheduled","message":"Successfully assigned cs-workers/example-app-6c9d7f5b8-h8kxw to worker-node-02.rack1.example.internal","count":1,"eventTime":"2030-01-01T00:00:01Z"},
+    {"metadata":{"name":"e2"},"involvedObject":{"kind":"ReplicaSet","name":"example-app-6c9d7f5b8"},"type":"Normal","reason":"SuccessfulCreate","message":"Created pod: example-app-6c9d7f5b8-h8kxw","count":1,"lastTimestamp":"2030-01-01T00:00:00Z"},
+    {"metadata":{"name":"e4"},"involvedObject":{"kind":"Pod","name":"other-app-5d5d5d5d5-aaaaa"},"type":"Warning","reason":"Failed","message":"about another app; must not be reported","count":1,"lastTimestamp":"2030-01-01T00:02:00Z","source":{"host":"worker-node-09.rack3.example.internal"}},
+    {"metadata":{"name":"e5"},"involvedObject":{"kind":"Node","name":"worker-node-02.rack1.example.internal"},"type":"Warning","reason":"NodeNotReady","message":"about a node; must not be reported","count":1,"lastTimestamp":"2030-01-01T00:02:30Z"}
+  ]
+}

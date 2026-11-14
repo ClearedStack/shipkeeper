@@ -1,0 +1,9 @@
+PATCH /apis/networking.k8s.io/v1/namespaces/cs-workers/networkpolicies/example-app (dry run)
+PATCH /api/v1/namespaces/cs-workers/services/example-app (dry run)
+PATCH /apis/apps/v1/namespaces/cs-workers/deployments/example-app (dry run)
+PATCH /apis/networking.k8s.io/v1/namespaces/cs-workers/networkpolicies/example-app
+PATCH /api/v1/namespaces/cs-workers/services/example-app
+PATCH /apis/apps/v1/namespaces/cs-workers/deployments/example-app
+GET /apis/apps/v1/namespaces/cs-workers/deployments/example-app
+GET /api/v1/namespaces/cs-workers/pods
+GET /api/v1/namespaces/cs-workers/events
