@@ -285,3 +285,69 @@ func TestParsePublicKeyRejectsNonP256AndMalformedPEM(t *testing.T) {
 		t.Fatalf("P-384 key: got %v, want %v", err, errs.Config)
 	}
 }
+
+func TestRetainedDigestsFiltersUnsignedAndHonorsOrder(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const d1 = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+	const d2 = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+	const dUnsigned = "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+
+	sig1 := makeCosignSignature(t, key, d1)
+	sig2 := makeCosignSignature(t, key, d2)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v2/assay/digests/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"name":    "assay",
+				"digests": []string{d1, dUnsigned, d2},
+			})
+		case r.Method == http.MethodHead && (r.URL.Path == "/v2/assay/manifests/"+d1 ||
+			r.URL.Path == "/v2/assay/manifests/"+d2 ||
+			r.URL.Path == "/v2/assay/manifests/"+dUnsigned):
+			w.WriteHeader(http.StatusOK)
+		case r.URL.Path == "/v2/assay/referrers/"+d1:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"schemaVersion": 2,
+				"manifests":     []any{map[string]any{"digest": sig1.manifestDigest, "artifactType": lazarette.SimpleSigningMediaType}},
+			})
+		case r.URL.Path == "/v2/assay/manifests/"+sig1.manifestDigest:
+			_, _ = w.Write(sig1.manifest)
+		case r.URL.Path == "/v2/assay/blobs/"+sig1.payloadDigest:
+			_, _ = w.Write(sig1.payload)
+		case r.URL.Path == "/v2/assay/referrers/"+d2:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"schemaVersion": 2,
+				"manifests":     []any{map[string]any{"digest": sig2.manifestDigest, "artifactType": lazarette.SimpleSigningMediaType}},
+			})
+		case r.URL.Path == "/v2/assay/manifests/"+sig2.manifestDigest:
+			_, _ = w.Write(sig2.manifest)
+		case r.URL.Path == "/v2/assay/blobs/"+sig2.payloadDigest:
+			_, _ = w.Write(sig2.payload)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := &lazarette.Client{
+		BaseURL:   srv.URL,
+		HTTP:      &http.Client{Timeout: 2 * time.Second},
+		PublicKey: &key.PublicKey,
+	}
+	got, err := c.RetainedDigests(context.Background(), "assay")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0] != d1 || got[1] != d2 {
+		t.Fatalf("RetainedDigests: got %v, want [%s %s]", got, d1, d2)
+	}
+
+	empty, err := c.RetainedDigests(context.Background(), "trawl")
+	if err != nil || len(empty) != 0 {
+		t.Fatalf("missing repo: got %v err=%v", empty, err)
+	}
+}

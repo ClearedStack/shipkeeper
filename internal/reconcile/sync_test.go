@@ -146,3 +146,73 @@ func TestSyncAllReconcilesAcrossNamespacesAndTriggersReplay(t *testing.T) {
 		t.Fatal("expected 17 components")
 	}
 }
+
+func TestSyncAllObservesBootstrapZeroDigestWorkloads(t *testing.T) {
+	const liveDigest = "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+
+	cluster := kubetest.New(manifest.Namespaces...)
+	defer cluster.Close()
+
+	// Seed a bootstrap app.yaml with the 64-zero placeholder for shipkeeper and bellbuoy.
+	pf := platform.MemoryPlainforge{
+		"shipkeeper": appYAML("shipkeeper", "clearedstack", "shipkeeper", reconcile.BootstrapDigest),
+		"bellbuoy":   appYAML("bellbuoy", "cs-workers", "bellbuoy", reconcile.BootstrapDigest),
+	}
+	laz := &platform.MemoryLazarette{}
+
+	// shipkeeper is already running in clearedstack via bootstrap deploy/*.yaml; bellbuoy is not deployed yet.
+	shipkeeperPod, _ := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"name":   "shipkeeper-7c9d8f-abcde",
+			"labels": map[string]any{"app.kubernetes.io/name": "shipkeeper"},
+		},
+		"spec": map[string]any{
+			"nodeName": "node-arm64-a",
+			"containers": []any{map[string]any{
+				"name":  "shipkeeper",
+				"image": "lazarette.clearedstack.svc.cluster.local:5000/shipkeeper@" + liveDigest,
+			}},
+		},
+		"status": map[string]any{
+			"phase":      "Running",
+			"conditions": []any{map[string]any{"type": "Ready", "status": "True"}},
+		},
+	})
+	cluster.AddPod("clearedstack", shipkeeperPod)
+
+	musterMem := &muster.Memory{}
+	musterSrv := httptest.NewServer(musterMem)
+	defer musterSrv.Close()
+
+	rec := &reconcile.Reconciler{
+		Plainforge: pf,
+		Lazarette:  laz,
+		Muster:     &platform.MemoryMuster{},
+		ContractMuster: &muster.Client{
+			BaseURL: musterSrv.URL,
+			Token:   "token-shipkeeper",
+			HTTP:    &http.Client{Timeout: 2 * time.Second},
+		},
+		Cluster: &kube.Client{
+			BaseURL:      cluster.URL,
+			FieldManager: manifest.FieldManager,
+			HTTP:         &http.Client{Timeout: 2 * time.Second},
+		},
+		Registry:      "lazarette.clearedstack.svc.cluster.local:5000",
+		ClusterDomain: "cluster.local",
+	}
+
+	ctx := context.Background()
+	sum := rec.SyncAll(ctx)
+	if !sum.Delivered || sum.Applied != 0 || len(sum.ComponentErrors) != 0 {
+		t.Fatalf("bootstrap SyncAll: %+v", sum)
+	}
+	if len(sum.Reports) != 1 || sum.Reports[0].Component != "shipkeeper" || sum.Reports[0].State != muster.Healthy || sum.Reports[0].Digest != liveDigest {
+		t.Fatalf("unexpected reports: %+v", sum.Reports)
+	}
+
+	// Standalone Once continues to reject BootstrapDigest with DigestMissing.
+	if _, err := rec.Once(ctx, "shipkeeper"); !errors.Is(err, errs.DigestMissing) {
+		t.Fatalf("expected Once to reject BootstrapDigest with DigestMissing, got %v", err)
+	}
+}

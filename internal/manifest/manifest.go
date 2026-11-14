@@ -108,7 +108,7 @@ func Parse(data []byte) (App, error) {
 	if app.Digest, err = text(doc.Fields["digest"], digestRE); err != nil {
 		return app, err
 	}
-	if app.Replicas, err = number(doc.Fields["replicas"], 1, maxReplicas); err != nil {
+	if app.Replicas, err = number(doc.Fields["replicas"], 0, maxReplicas); err != nil {
 		return app, err
 	}
 	if app.Port, err = number(doc.Fields["port"], 1, 65535); err != nil {

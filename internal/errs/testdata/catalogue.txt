@@ -19,11 +19,13 @@ E_TIMEOUT: Plainforge could not be reached
 E_PARSE: Plainforge sent a reply that could not be read
 E_NEEDS_SUBTOOL: Plainforge refused the request
 E_NEEDS_SUBTOOL: Plainforge has no app.yaml for this app
+E_NEEDS_SUBTOOL: Plainforge refused the commit because the branch moved; nothing was overwritten
 E_TIMEOUT: Lazarette did not answer in time
 E_TIMEOUT: Lazarette could not be reached
 E_PARSE: Lazarette sent a reply that could not be read
 E_NEEDS_SUBTOOL: Lazarette refused the request
 E_NEEDS_SUBTOOL: the digest in app.yaml is not among the signed digests Lazarette holds; nothing was applied
+E_NEEDS_SUBTOOL: Lazarette holds no earlier signed digest to roll back to; nothing was changed
 E_TIMEOUT: Muster did not answer in time; the health report was not delivered
 E_TIMEOUT: Muster could not be reached; the health report was not delivered
 E_TIMEOUT: Muster or Logbook is busy or slow; the health report will be retried

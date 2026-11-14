@@ -37,8 +37,13 @@ const (
 )
 
 const (
+	// MaxRetainedDigests is the maximum number of retained signed digests
+	// Lazarette returns from GET /v2/<name>/digests/list (SPEC.md).
+	MaxRetainedDigests = 5
+
 	acceptManifest   = OCIManifestMediaType + ", " + OCIIndexMediaType
 	maxErrBytes      = 16 << 10
+	maxListBytes     = 16 << 10
 	maxManifestBytes = 64 << 10
 	maxPayloadBytes  = 64 << 10
 	maxReferrers     = 16
@@ -89,7 +94,71 @@ func (c *Client) HasSignedDigest(ctx context.Context, image, digest string) (boo
 	if err != nil {
 		return false, err
 	}
+	return c.hasSignedDigestWithKey(ctx, pub, image, digest)
+}
 
+// RetainedDigests fetches GET /v2/<image>/digests/list from Lazarette in
+// oldest-to-newest order (at most MaxRetainedDigests) and filters to digests
+// whose manifest and cosign signature verify cleanly.
+func (c *Client) RetainedDigests(ctx context.Context, image string) ([]string, error) {
+	if c.BaseURL == "" || c.HTTP == nil {
+		return nil, errs.Config
+	}
+	if !imageRE.MatchString(image) {
+		return nil, errs.ManifestValue
+	}
+	pub, err := c.publicKey()
+	if err != nil {
+		return nil, err
+	}
+
+	status, _, body, err := c.do(ctx, http.MethodGet, "/v2/"+image+"/digests/list", "application/json", maxListBytes)
+	if err != nil {
+		return nil, err
+	}
+	switch status {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return nil, nil
+	default:
+		return nil, statusError(status)
+	}
+
+	var reply struct {
+		Name    string   `json:"name"`
+		Digests []string `json:"digests"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&reply); err != nil {
+		return nil, errs.LazaretteBadReply
+	}
+	if reply.Name != "" && reply.Name != image {
+		return nil, errs.LazaretteBadReply
+	}
+	if len(reply.Digests) > MaxRetainedDigests {
+		return nil, errs.LazaretteBadReply
+	}
+
+	var verified []string
+	seen := make(map[string]bool, len(reply.Digests))
+	for _, d := range reply.Digests {
+		if !digestRE.MatchString(d) || seen[d] {
+			return nil, errs.LazaretteBadReply
+		}
+		seen[d] = true
+		ok, err := c.hasSignedDigestWithKey(ctx, pub, image, d)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			verified = append(verified, d)
+		}
+	}
+	return verified, nil
+}
+
+func (c *Client) hasSignedDigestWithKey(ctx context.Context, pub *ecdsa.PublicKey, image, digest string) (bool, error) {
 	status, hdr, _, err := c.do(ctx, http.MethodHead, "/v2/"+image+"/manifests/"+digest, acceptManifest, 0)
 	if err != nil {
 		return false, err
