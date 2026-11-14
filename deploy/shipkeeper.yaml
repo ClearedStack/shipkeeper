@@ -32,6 +32,7 @@ spec:
         app.kubernetes.io/part-of: clearedstack
         app.kubernetes.io/component: control-plane
     spec:
+      priorityClassName: clearedstack-high
       serviceAccountName: shipkeeper
       automountServiceAccountToken: true
       enableServiceLinks: false
@@ -65,7 +66,7 @@ spec:
               protocol: TCP
           env:
             - name: PLAINFORGE_URL
-              value: "http://plainforge.clearedstack.svc.cluster.local"
+              value: "http://plainforge.clearedstack.svc.cluster.local:8080"
             - name: LAZARETTE_URL
               value: "http://lazarette.clearedstack.svc.cluster.local:5000"
             - name: COSIGN_PUB_FILE

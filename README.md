@@ -26,7 +26,7 @@ Shipkeeper is a control-plane service of the ClearedStack platform. ClearedStack
 | [`app.yaml`](app.yaml) | Desired-state release manifest for Shipkeeper, updated by Keelworks on signed builds. |
 | [`brand/`](brand) | The Shipkeeper logo and mark, for light and dark backgrounds. |
 | [`cmd/`](cmd), [`internal/`](internal) | The reconciler, Plainforge/Lazarette/Kubernetes/Muster clients, and test suite. |
-| [`.ko.yaml`](.ko.yaml), [`deploy/`](deploy) | `ko` image build settings and hardened Kubernetes manifests (`Namespace`, `ServiceAccount`, `Role`, `RoleBinding`, `NetworkPolicy`, `Deployment`). |
+| [`.ko.yaml`](.ko.yaml), [`deploy/`](deploy) | `ko` image build settings and hardened Kubernetes manifests (`Namespace`, `PriorityClass`, `ServiceAccount`, `Role`, `RoleBinding`, `NetworkPolicy`, `Deployment`). |
 
 ## At a glance
 
@@ -43,8 +43,8 @@ Shipkeeper is a control-plane service of the ClearedStack platform. ClearedStack
 ### Boundaries
 
 - Kubernetes API, using Server-Side Apply (`fieldManager=shipkeeper`, `force=false`) across `clearedstack` and `cs-workers`
-- Reads `app.yaml` manifests from Plainforge over Git smart HTTP (`/<repo>.git/info/refs?service=git-upload-pack` and `/<repo>.git/git-upload-pack`)
-- Verifies pinned `sha256` image digests and ECDSA P-256 `cosign` SimpleSigning signatures in Lazarette over OCI Distribution v2/v1.1 (`HEAD /v2/<image>/manifests/<digest>` and `GET /v2/<image>/referrers/<digest>`, with `sha256-<hex>.sig` tag fallback)
+- Reads and commits `app.yaml` manifests on Plainforge (`:8080`) over Git smart HTTP (`git-upload-pack` and `git-receive-pack` with `[skip-ci]` commit markers)
+- Verifies pinned `sha256` image digests, up to 5 retained rollback digests (`GET /v2/<image>/digests/list`), and ECDSA P-256 `cosign` SimpleSigning signatures in Lazarette over OCI Distribution v2/v1.1 (`HEAD /v2/<image>/manifests/<digest>` and `GET /v2/<image>/referrers/<digest>`, with `sha256-<hex>.sig` tag fallback)
 - Sends sanitized health reports (`POST /v1/health`) to Muster as `system:serviceaccount:clearedstack:shipkeeper`, never touching Logbook (PostgreSQL 17) directly
 
 ## What works today
@@ -53,12 +53,15 @@ Shipkeeper is a control-plane service of the ClearedStack platform. ClearedStack
    - Polls all 17 registered platform components (`7` in `clearedstack`, `10` in `cs-workers`) on a fixed interval (`30s` by default, or one pass with `-once`).
    - Fetches each component's `app.yaml` from Plainforge over Git smart HTTP with an in-memory commit-OID cache so unchanged repositories incur no pack upload.
    - Verifies both OCI manifest presence and ECDSA P-256 `cosign` SimpleSigning signature (under `/var/run/secrets/keelworks/cosign/cosign.pub`, re-read per call for live key rotation) in Lazarette before touching the cluster; if missing or unsigned, preserves the currently running healthy replica set and reports `degraded` with `E_NEEDS_SUBTOOL`.
+   - Recognizes template bootstrap `app.yaml` files carrying the all-zero placeholder (`sha256:0000...0000`) and observes any live bootstrap workload in-cluster instead of reporting spurious `DigestMissing` errors before Keelworks pushes its first signed image.
    - Applies a `NetworkPolicy`, `Service`, and `Deployment` with Kubernetes Server-Side Apply (`dryRun=All` across all three first, `force=false` always) so manual edits are never overwritten.
    - Observes existing cluster workloads (including components without `app.yaml` in Plainforge yet, such as the `logbook` `StatefulSet`), strips all node names, pod names, IP addresses, and internal DNS names, and sends a single batched `POST /v1/health` request to Muster.
    - Includes `digest` only once a rollout is `healthy`, triggering Muster's Logbook PostgreSQL 17 transaction to replay paused worker items (`core.pause`) and mark `building` edit proposals (`core.edit_proposal`) as `live`.
    - Buffers pending health reports in memory and retries automatically across Muster restarts or Logbook slowdowns (`503 store_slow`).
-   - Re-reads projected Kubernetes `ServiceAccount` bearer tokens from disk on each call so kubelet token rotation works without pod restarts, and serves `GET /healthz` on `:8080` for readiness and liveness probes.
-2. **Standalone single-app mode (`shipkeeper -app ...`):**
+   - Runs under `PriorityClass` `clearedstack-high` (`value: 100000`), re-reads projected Kubernetes `ServiceAccount` bearer tokens from disk on each call so kubelet token rotation works without pod restarts, and serves `GET /healthz` on `:8080` for readiness and liveness probes.
+2. **GitOps lifecycle controller (`shipkeeper upgrade`, `pause`, `resume`, `rollback`):**
+   - Discovers up to 5 retained signed digests in Lazarette (`GET /v2/<image>/digests/list`) verified against `cosign.pub`, dry-runs Server-Side Apply first so conflicts abort cleanly without mutating Git or the cluster, commits the updated `app.yaml` to Plainforge over `git-receive-pack` with `[skip-ci]`, applies the updated `Deployment` (`replicas: 0` on `pause` while preserving `Service`, `NetworkPolicy`, configuration, PVCs, and queue state), and reports sanitized health to Muster and standard output.
+3. **Standalone single-app mode (`shipkeeper -app ...`):**
    - Reads one `app.yaml` and a local digest list, applies to a cluster, and prints the sanitized report JSON to standard output.
 
 ### Try it
@@ -67,7 +70,7 @@ Needs Go 1.24 or later and nothing else. Standard library only (`go.mod` has zer
 
 ```sh
 go vet ./...
-go test -race ./...                # all unit, integration, cosign, and 52 Muster contract v1 replay tests
+go test -race ./...                # all unit, integration, cosign, git-receive-pack, and 52 Muster contract v1 replay tests
 go run ./cmd/shipkeeper-demo       # standalone pass against the in-memory cluster
 ```
 
@@ -75,10 +78,19 @@ Run one full control-plane reconciliation pass against Plainforge, Lazarette, Mu
 
 ```sh
 go run ./cmd/shipkeeper serve -once \
-  -plainforge-url http://plainforge.clearedstack.svc.cluster.local \
+  -plainforge-url http://plainforge.clearedstack.svc.cluster.local:8080 \
   -lazarette-url http://lazarette.clearedstack.svc.cluster.local:5000 \
   -cosign-pub-file /var/run/secrets/keelworks/cosign/cosign.pub \
   -muster-url http://muster.clearedstack.svc.cluster.local:8080
+```
+
+Run lifecycle actions (`upgrade`, `pause`, `resume`, `rollback`) backed by Plainforge `[skip-ci]` commits and Lazarette's 5-digest rollback ring:
+
+```sh
+go run ./cmd/shipkeeper upgrade  -app assay
+go run ./cmd/shipkeeper pause    -app assay
+go run ./cmd/shipkeeper resume   -app assay -replicas 2
+go run ./cmd/shipkeeper rollback -app assay              # or -to sha256:...
 ```
 
 ### The `app.yaml` read today
@@ -90,7 +102,7 @@ name: assay                  # component slug, and the name of its three objects
 namespace: cs-workers        # clearedstack or cs-workers, matching the naming registry
 image: assay                 # repository name in Lazarette, with no host
 digest: sha256:4e7a...       # 64 hex digits; must exist and verify in Lazarette
-replicas: 2                  # 1 to 10
+replicas: 2                  # 0 (paused) to 10
 port: 8080                   # the one TCP port the app listens on
 memory: 32Mi                 # request and limit
 allowFrom:                   # optional: peers allowed to connect; empty means nobody
@@ -104,7 +116,7 @@ Only comments, `key: value`, lists of plain values, and simple quotes are accept
 | Rules | Saved examples |
 | --- | --- |
 | Muster shared contract v1 (`POST /v1/health`, `GET /healthz`, all 28 refusals, and all 20 worker/public envelopes) | [`internal/muster/testdata/examples`](internal/muster/testdata/examples): 52 files from `ClearedStack/muster/contract/v1/examples/` |
-| Reading `app.yaml`, and the three objects made from it | [`internal/manifest/testdata`](internal/manifest/testdata): 36 cases, `app.yaml` -> `objects.json` or `error.txt` |
+| Reading `app.yaml`, and the three objects made from it | [`internal/manifest/testdata`](internal/manifest/testdata): 37 cases, `app.yaml` -> `objects.json` or `error.txt` |
 | Removing cluster details from text | [`internal/sanitize/testdata/cases.json`](internal/sanitize/testdata/cases.json): 39 cases |
 | Health state and the report | [`internal/health/testdata`](internal/health/testdata): 11 cases, `observed.json` -> `report.json` or `error.txt` |
 | Single-app reconciliation pass | [`internal/reconcile/testdata`](internal/reconcile/testdata), from [`internal/example/files`](internal/example/files) |
@@ -113,7 +125,7 @@ Only comments, `key: value`, lists of plain values, and simple quotes are accept
 
 ## What does not work yet
 
-- **1-click App Store actions (`Install`, `Upgrade`, `Pause`, `Rollback`) from Muster:** `SPEC.md` describes owner-triggered lifecycle commands routed through Muster, including switching back to one of 5 retained digests in Lazarette. Muster's `contract/v1/CONTRACT.md` defines only `POST /v1/health` for `shipkeeper` and explicitly forbids inventing endpoints, fields, or work-item kinds. Initial `Install` and GitOps `Upgrade` happen automatically when `app.yaml` appears or advances in Plainforge; interactive `Pause` and `Rollback` await a contract addition in Muster.
+- **1-click App Store dispatch wire call from Muster:** Shipkeeper's `Upgrade`, `Pause`, `Resume`, and `Rollback` lifecycle controller operations are implemented and tested end-to-end against Plainforge (`git-receive-pack` with `[skip-ci]`) and Lazarette (`GET /v2/<image>/digests/list` + ECDSA P-256 `cosign` verification), and exposed via CLI subcommands. Muster's `contract/v1/CONTRACT.md` still defines only `POST /v1/health` for `shipkeeper` and forbids inventing endpoints or work-item kinds, so automated Muster-to-Shipkeeper dispatch awaits that contract addition in `ClearedStack/muster`.
 - **`idle` health state from Shipkeeper:** `SPEC.md` lists `idle` among health states, without defining a Kubernetes pod rule for it. In Muster's `CONTRACT.md`, `POST /v1/health` accepts `healthy`, `idle`, `degraded`, and `paused`, while Muster itself derives worker `idle` from lease inactivity in Logbook; Shipkeeper therefore emits `healthy`, `degraded`, and `paused` from Kubernetes rollout state without guessing `idle`.
 - **Event streaming vs bounded polling:** Shipkeeper reconciles and observes `Deployment`, `Pod`, and `Event` resources every `SHIPKEEPER_INTERVAL` (`30s`) rather than holding open unbounded Kubernetes watch streams, keeping resident memory comfortably within its `48 MiB` limit.
 - **Live cluster validation:** All Kubernetes tests run against `internal/kubetest` (`TestRealAPIServer` is ready to run when pointed at a throwaway cluster, and the `48 MiB` pod limit has not yet been measured on a live `arm64` node).
@@ -121,10 +133,10 @@ Only comments, `key: value`, lists of plain values, and simple quotes are accept
 ## What is missing from the contract and neighbours
 
 1. **Muster (`ClearedStack/muster`):**
-   - `contract/v1/CONTRACT.md` needs a contract call (or lease/action envelope) if Muster is to dispatch owner-triggered `Install`, `Upgrade`, `Pause`, and `Rollback` commands to Shipkeeper, plus a rule if Shipkeeper (rather than Muster) should ever emit `idle`.
+   - `contract/v1/CONTRACT.md` needs a contract call (or lease/action envelope) for Muster to dispatch owner-triggered `Install`, `Upgrade`, `Pause`, `Resume`, and `Rollback` commands to Shipkeeper's lifecycle controller, plus a rule if Shipkeeper (rather than Muster) should ever emit `idle`.
    - Muster, Plainforge, and Lazarette on `main` already allow NetworkPolicy ingress from `shipkeeper` in `clearedstack`.
-2. **Plainforge (`ClearedStack/plainforge`) & Component Repositories:**
-   - Each managed component repository needs a root `app.yaml` once Shipkeeper is expected to apply its `Deployment`, `Service`, and `NetworkPolicy` (until then, Shipkeeper observes existing workloads read-only without failing).
+2. **Component Repositories:**
+   - Managed component repositories that do not yet carry a root `app.yaml` (`sextant`, `waybill`, etc.) are observed read-only until their `app.yaml` is committed and pinned by Keelworks.
 3. **Bootstrap image digest & `keelworks-cosign` Secret:**
    - At cluster bootstrap, `keelworks-cosign` (`cosign.pub`) is generated in `clearedstack`, and Keelworks/`ko` pushes the signed `linux/arm64` image to Lazarette to replace the `sha256:0000...` bootstrap placeholder in [`deploy/shipkeeper.yaml`](deploy/shipkeeper.yaml) and [`app.yaml`](app.yaml).
 
