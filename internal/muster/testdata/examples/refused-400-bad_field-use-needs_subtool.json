@@ -1,0 +1,41 @@
+{
+  "about": "A missing rule is reported with the needs_subtool call, not with fail.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/fail",
+    "body": {
+      "contract": "v1",
+      "lease": "PA-0001.1.1",
+      "code": "E_NEEDS_SUBTOOL"
+    }
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "bad_field",
+      "reason": "report a missing rule with the needs_subtool call"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "about": "Conn forwards an edit proposal that passes every check: it is kept, waiting for the owner.",
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/edits",
+    "body": {
+      "contract": "v1",
+      "target": "catalog.sample-calculator.description",
+      "change": "The sample description should say which made-up rule it follows.",
+      "reason": "It reads as if no rule applies.",
+      "pow": "2026-01-05.208bd",
+      "honeypot": "",
+      "source": "203.0.113.7"
+    }
+  },
+  "expect": {
+    "status": 202,
+    "body": {
+      "id": "EP-0001",
+      "status": "pending_approval"
+    }
+  }
+}

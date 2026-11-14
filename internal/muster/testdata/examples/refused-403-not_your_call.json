@@ -1,0 +1,19 @@
+{
+  "about": "A caller makes a call that is not its own: Conn is not a worker.",
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 403,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "not_your_call",
+      "reason": "this caller may not make this call"
+    }
+  }
+}

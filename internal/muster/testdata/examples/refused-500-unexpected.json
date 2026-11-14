@@ -1,0 +1,30 @@
+{
+  "about": "Something nothing provides for. The caller is told only that the request was refused.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "condition": "logbook fails in a way nothing provides for"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 500,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "unexpected",
+      "reason": "an unexpected condition; the request was refused"
+    }
+  }
+}

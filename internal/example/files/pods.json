@@ -1,0 +1,54 @@
+[
+  {
+    "metadata": {
+      "name": "example-app-6c9d7f5b8-q4zt2",
+      "namespace": "cs-workers",
+      "labels": {"app.kubernetes.io/name": "example-app"}
+    },
+    "spec": {"nodeName": "worker-node-07.rack3.example.internal"},
+    "status": {
+      "phase": "Running",
+      "hostIP": "10.20.30.47",
+      "hostIPs": [{"ip": "10.20.30.47"}, {"ip": "fd00:20:30::47"}],
+      "podIP": "10.42.3.18",
+      "podIPs": [{"ip": "10.42.3.18"}, {"ip": "fd00:42:3::18"}],
+      "conditions": [
+        {"type": "PodScheduled", "status": "True"},
+        {"type": "Ready", "status": "True"}
+      ],
+      "containerStatuses": [
+        {"name": "example-app", "ready": true, "restartCount": 0, "state": {"running": {"startedAt": "2030-01-01T00:00:05Z"}}}
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "example-app-6c9d7f5b8-h8kxw",
+      "namespace": "cs-workers",
+      "labels": {"app.kubernetes.io/name": "example-app"}
+    },
+    "spec": {"nodeName": "worker-node-02.rack1.example.internal"},
+    "status": {
+      "phase": "Running",
+      "hostIP": "10.20.30.42",
+      "podIP": "10.42.1.9",
+      "conditions": [
+        {"type": "PodScheduled", "status": "True"},
+        {"type": "Ready", "status": "False", "reason": "ContainersNotReady"}
+      ],
+      "containerStatuses": [
+        {
+          "name": "example-app",
+          "ready": false,
+          "restartCount": 4,
+          "state": {
+            "waiting": {
+              "reason": "CrashLoopBackOff",
+              "message": "back-off 40s restarting failed container=example-app pod=example-app-6c9d7f5b8-h8kxw_cs-workers(0f0e0d0c-1111-2222-3333-444455556666)"
+            }
+          }
+        }
+      ]
+    }
+  }
+]

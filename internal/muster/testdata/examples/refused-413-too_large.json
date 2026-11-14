@@ -1,0 +1,25 @@
+{
+  "about": "An edit proposal of more than 4,096 bytes. (Any other body may be 64 KiB, and Waybill's complete 256 KiB.)",
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/edits",
+    "body": {
+      "contract": "v1",
+      "target": "catalog.sample-calculator.description",
+      "change": "The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. The sample description is out of date. ",
+      "reason": "It reads as if no rule applies.",
+      "pow": "2026-01-05.38030",
+      "honeypot": "",
+      "source": "203.0.113.7"
+    }
+  },
+  "expect": {
+    "status": 413,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "too_large",
+      "reason": "the request is too large"
+    }
+  }
+}

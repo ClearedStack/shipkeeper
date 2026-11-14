@@ -1,0 +1,22 @@
+# Build Shipkeeper straight from source with ko. There is no Dockerfile.
+#
+#   KO_DOCKER_REPO=lazarette.clearedstack.svc.cluster.local:5000 \
+#     ko build --base-import-paths ./cmd/shipkeeper
+#
+# The upstream static base image is pinned by digest, runs as non-root
+# (uid 65532), writes nothing to disk, and contains no shell or package
+# manager.
+defaultBaseImage: gcr.io/distroless/static@sha256:448810357cc8e67b7208988abdba0f5ec3d3aebee0a5b13eb624979792cffc0f
+defaultPlatforms:
+  - linux/arm64
+
+builds:
+  - id: shipkeeper
+    main: ./cmd/shipkeeper
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s
+      - -w

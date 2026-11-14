@@ -1,0 +1,30 @@
+{
+  "about": "Logbook has no rule for a value Muster gave it.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "condition": "logbook has no rule for a value"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 422,
+    "body": {
+      "error": "E_NEEDS_SUBTOOL",
+      "cause": "unknown_value",
+      "reason": "the record store has no rule for a value"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "about": "A health state Shipkeeper is not known to send.",
+  "request": {
+    "as": "shipkeeper",
+    "method": "POST",
+    "path": "/v1/health",
+    "body": {
+      "contract": "v1",
+      "reports": [
+        {
+          "component": "sextant",
+          "state": "erroring"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 422,
+    "body": {
+      "error": "E_NEEDS_SUBTOOL",
+      "cause": "unknown_value",
+      "reason": "this health state is not known"
+    }
+  }
+}

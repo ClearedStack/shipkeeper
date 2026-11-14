@@ -1,0 +1,50 @@
+{
+  "about": "Countersign passes on the owner's decision to let a stopped item run again: it goes back to its worker in the urgent lane, in the state it was stopped in.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/fail",
+        "body": {
+          "contract": "v1",
+          "lease": "PA-0001.1.1",
+          "code": "E_PARSE"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "countersign",
+    "method": "POST",
+    "path": "/v1/release",
+    "body": {
+      "contract": "v1",
+      "id": "PA-0001"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "id": "PA-0001",
+      "state": "recorded",
+      "next": "sextant"
+    }
+  }
+}

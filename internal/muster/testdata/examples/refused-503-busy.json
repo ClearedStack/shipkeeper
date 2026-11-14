@@ -1,0 +1,30 @@
+{
+  "about": "Muster is answering as many calls as it will at once.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "condition": "every place for a call in flight is taken"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 503,
+    "body": {
+      "error": "E_TIMEOUT",
+      "cause": "busy",
+      "reason": "too busy; try again"
+    }
+  }
+}

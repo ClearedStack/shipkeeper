@@ -1,0 +1,1 @@
+E_PARSE: app.yaml has a field of the wrong shape (app.yaml line 6)

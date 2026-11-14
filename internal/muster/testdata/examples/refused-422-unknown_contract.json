@@ -1,0 +1,19 @@
+{
+  "about": "A contract version this build does not know.",
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v2"
+    }
+  },
+  "expect": {
+    "status": 422,
+    "body": {
+      "error": "E_NEEDS_SUBTOOL",
+      "cause": "unknown_contract",
+      "reason": "this contract version is not known"
+    }
+  }
+}

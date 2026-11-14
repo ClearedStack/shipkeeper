@@ -1,0 +1,5 @@
+{
+  "deployment": {"metadata":{"name":"example-app","generation":1},"spec":{}},
+  "pods": [],
+  "events": []
+}

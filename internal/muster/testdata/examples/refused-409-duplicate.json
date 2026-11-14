@@ -1,0 +1,29 @@
+{
+  "about": "One batch of health reports names the same component twice.",
+  "request": {
+    "as": "shipkeeper",
+    "method": "POST",
+    "path": "/v1/health",
+    "body": {
+      "contract": "v1",
+      "reports": [
+        {
+          "component": "sextant",
+          "state": "healthy"
+        },
+        {
+          "component": "sextant",
+          "state": "idle"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 409,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "duplicate",
+      "reason": "the same component is reported twice in one batch"
+    }
+  }
+}

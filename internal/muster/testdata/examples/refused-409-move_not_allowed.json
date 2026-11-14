@@ -1,0 +1,41 @@
+{
+  "about": "A move the tables do not allow: recorded may not go straight to scored.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/complete",
+    "body": {
+      "contract": "v1",
+      "lease": "PA-0001.1.1",
+      "state": "scored"
+    }
+  },
+  "expect": {
+    "status": 409,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "move_not_allowed",
+      "reason": "that move is not allowed"
+    }
+  }
+}

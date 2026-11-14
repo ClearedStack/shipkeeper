@@ -1,0 +1,10 @@
+# Desired state of Shipkeeper for GitOps reconciliation.
+# The bootstrap digest is replaced automatically by Keelworks when it builds
+# and signs Shipkeeper into Lazarette.
+name: shipkeeper
+namespace: clearedstack
+image: shipkeeper
+digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+replicas: 1
+port: 8080
+memory: 48Mi

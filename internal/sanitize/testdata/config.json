@@ -1,0 +1,11 @@
+{
+  "ClusterDomain": "cluster.local",
+  "Namespaces": ["clearedstack", "cs-workers"],
+  "Nodes": ["worker-node-07.rack3.example.internal", "worker-node-07", "n1"],
+  "Pods": {
+    "example-app-6c9d7f5b8-q4zt2": "pod-1",
+    "example-app-6c9d7f5b8-h8kxw": "pod-2",
+    "custom-hostname": "pod-2"
+  },
+  "Addresses": ["10.42.3.18", "fd00:42:3::18", "not-an-address-shape"]
+}
