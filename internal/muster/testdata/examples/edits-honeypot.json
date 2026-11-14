@@ -1,0 +1,20 @@
+{
+  "about": "An edit proposal with the hidden field filled in: no content, and nothing is kept.",
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/edits",
+    "body": {
+      "contract": "v1",
+      "target": "catalog.sample-calculator.description",
+      "change": "The sample description should say which made-up rule it follows.",
+      "reason": "It reads as if no rule applies.",
+      "pow": "2026-01-05.208bd",
+      "honeypot": "made-up text",
+      "source": "203.0.113.7"
+    }
+  },
+  "expect": {
+    "status": 204
+  }
+}

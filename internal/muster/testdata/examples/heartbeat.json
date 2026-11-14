@@ -1,0 +1,40 @@
+{
+  "about": "A worker keeps its lease: the lease now ends one lease length from the moment of the call.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      }
+    ],
+    "wait": "45s"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/heartbeat",
+    "body": {
+      "contract": "v1",
+      "lease": "PA-0001.1.1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "lease": "PA-0001.1.1",
+      "expires": "2026-01-05T09:01:45Z"
+    }
+  }
+}

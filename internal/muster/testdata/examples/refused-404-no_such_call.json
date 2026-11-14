@@ -1,0 +1,19 @@
+{
+  "about": "No such call.",
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/made-up",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 404,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "no_such_call",
+      "reason": "no such call"
+    }
+  }
+}

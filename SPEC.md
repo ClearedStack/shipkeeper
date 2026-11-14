@@ -8,7 +8,7 @@ The same text is published at [clearedstack.com/platform/shipkeeper/](https://cl
 
 ## Overview & Role
 
-Shipkeeper (`v0.1.0-draft`, owned by the Shipkeeper repository) is a clean-room MIT Go microservice running in the `clearedstack` control-plane namespace. It combines GitOps deployment reconciliation with an App Store lifecycle controller—replacing both Argo CD and CasaOS with a single binary that speaks native Kubernetes **Server-Side Apply** and introduces **zero custom CRDs**.
+Shipkeeper (`v0.1.0-draft`, owned by the Shipkeeper repository) is a clean-room MIT Go microservice running in the `clearedstack` control-plane namespace. It combines GitOps deployment reconciliation with an App Store lifecycle controller, replacing both Argo CD and CasaOS with a single binary that speaks native Kubernetes **Server-Side Apply** and introduces **zero custom CRDs**.
 
 Shipkeeper watches `app.yaml` manifests in Plainforge and signed digests in Lazarette, reconciles all 17 platform workloads across `clearedstack` (7 control-plane pods) and `cs-workers` (10 deterministic worker pods), and streams sanitized pod health and error codes to Muster for display on `https://clearedstack.com/platform/#registry` and `https://clearedstack.com/platform/operations/`.
 
@@ -20,7 +20,7 @@ Shipkeeper watches `app.yaml` manifests in Plainforge and signed digests in Laza
 | **Namespace** | `clearedstack` (`control-plane`) |
 | **Version** | `v0.1.0-draft` |
 | **RAM Budget (Requested)** | `48 MiB` |
-| **Priority Class** | High (Control Plane — protected from eviction) |
+| **Priority Class** | High (Control Plane - protected from eviction) |
 | **Reconciliation Mechanism** | Native Kubernetes Server-Side Apply (zero custom CRDs) |
 | **Sub-Tools** | None (`[]`) |
 

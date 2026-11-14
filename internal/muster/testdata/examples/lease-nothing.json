@@ -1,0 +1,24 @@
+{
+  "about": "A worker asks for its next step and there is none: no content.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ]
+  },
+  "request": {
+    "as": "assay",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 204
+  }
+}

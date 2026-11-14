@@ -1,0 +1,16 @@
+# The two namespaces Shipkeeper reconciles: clearedstack holds control-plane
+# services (including Shipkeeper itself) and cs-workers holds the ten
+# deterministic pipeline workers.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clearedstack
+  labels:
+    holm.chat/protected: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cs-workers
+  labels:
+    app.kubernetes.io/part-of: clearedstack

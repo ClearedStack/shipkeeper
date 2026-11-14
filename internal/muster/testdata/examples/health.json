@@ -1,0 +1,39 @@
+{
+  "about": "Shipkeeper reports the health of four components.",
+  "request": {
+    "as": "shipkeeper",
+    "method": "POST",
+    "path": "/v1/health",
+    "body": {
+      "contract": "v1",
+      "reports": [
+        {
+          "component": "sextant",
+          "state": "healthy",
+          "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "component": "logbook",
+          "state": "idle"
+        },
+        {
+          "component": "assay",
+          "state": "degraded",
+          "code": "E_TIMEOUT"
+        },
+        {
+          "component": "trawl",
+          "state": "paused"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "received": 4,
+      "replayed": 0,
+      "live": 0
+    }
+  }
+}

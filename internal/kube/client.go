@@ -12,8 +12,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/ClearedStack/shipkeeper/internal/errs"
 )
@@ -25,7 +27,8 @@ const maxReply = 8 << 20
 // Client talks to one Kubernetes API server.
 type Client struct {
 	BaseURL      string       // e.g. https://kubernetes.default.svc
-	Token        string       // bearer token, may be empty
+	Token        string       // bearer token, used when TokenFile is empty
+	TokenFile    string       // ServiceAccount token path, read fresh per call
 	FieldManager string       // the name fields are owned under
 	HTTP         *http.Client // must carry a timeout
 }
@@ -104,21 +107,60 @@ func (c *Client) Observe(ctx context.Context, namespace, name, labelKey string) 
 	if err := c.get(ctx, "/apis/apps/v1"+ns+"/deployments/"+url.PathEscape(name), &o.Deployment); err != nil {
 		return o, err
 	}
+	pods, events, err := c.listPodsAndEvents(ctx, ns, name, labelKey)
+	if err != nil {
+		return o, err
+	}
+	o.Pods, o.Events = pods, events
+	return o, nil
+}
+
+// ObserveExisting inspects an existing workload in namespace when Plainforge
+// has no app.yaml for it yet (such as a StatefulSet like Logbook or a service
+// deployed directly from manifests). When neither a Deployment nor matching
+// pods exist yet, hasDeployment is false and o.Pods is empty.
+func (c *Client) ObserveExisting(ctx context.Context, namespace, name, labelKey string) (Observed, bool, error) {
+	var o Observed
+	ns := "/namespaces/" + url.PathEscape(namespace)
+	status, body, err := c.do(ctx, http.MethodGet, "/apis/apps/v1"+ns+"/deployments/"+url.PathEscape(name), nil)
+	if err != nil {
+		return o, false, err
+	}
+	hasDeployment := false
+	switch status {
+	case http.StatusOK:
+		if json.Unmarshal(body, &o.Deployment) != nil {
+			return o, false, errs.KubeBadReply
+		}
+		hasDeployment = true
+	case http.StatusNotFound:
+		hasDeployment = false
+	default:
+		return o, false, statusError(status)
+	}
+	pods, events, err := c.listPodsAndEvents(ctx, ns, name, labelKey)
+	if err != nil {
+		return o, false, err
+	}
+	o.Pods, o.Events = pods, events
+	return o, hasDeployment, nil
+}
+
+func (c *Client) listPodsAndEvents(ctx context.Context, ns, name, labelKey string) ([]Pod, []Event, error) {
 	var pods struct {
 		Items []Pod `json:"items"`
 	}
 	sel := url.Values{"labelSelector": {labelKey + "=" + name}}
 	if err := c.get(ctx, "/api/v1"+ns+"/pods?"+sel.Encode(), &pods); err != nil {
-		return o, err
+		return nil, nil, err
 	}
 	var events struct {
 		Items []Event `json:"items"`
 	}
 	if err := c.get(ctx, "/api/v1"+ns+"/events", &events); err != nil {
-		return o, err
+		return nil, nil, err
 	}
-	o.Pods, o.Events = pods.Items, events.Items
-	return o, nil
+	return pods.Items, events.Items, nil
 }
 
 func (c *Client) get(ctx context.Context, path string, out any) error {
@@ -148,6 +190,10 @@ func statusError(status int) error {
 // do sends one request. The returned errors come from the catalogue only;
 // the transport error, which can hold a host name or an address, is dropped.
 func (c *Client) do(ctx context.Context, method, path string, body []byte) (int, []byte, error) {
+	token, err := c.bearerToken()
+	if err != nil {
+		return 0, nil, err
+	}
 	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return 0, nil, errs.Config
@@ -157,8 +203,8 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) (int,
 		// JSON is YAML, and this is the media type server-side apply asks for.
 		req.Header.Set("Content-Type", "application/apply-patch+yaml")
 	}
-	if c.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.Token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
@@ -173,6 +219,21 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) (int,
 		return 0, nil, errs.KubeUnexpected
 	}
 	return resp.StatusCode, reply, nil
+}
+
+func (c *Client) bearerToken() (string, error) {
+	if c.TokenFile == "" {
+		return c.Token, nil
+	}
+	raw, err := os.ReadFile(c.TokenFile)
+	if err != nil {
+		return "", errs.Config
+	}
+	tok := strings.TrimSpace(string(raw))
+	if tok == "" {
+		return "", errs.Config
+	}
+	return tok, nil
 }
 
 func transportError(err error) error {

@@ -1,0 +1,30 @@
+{
+  "about": "Logbook's own check refuses a row Muster gave it. The caller is told a field was refused, and nothing Logbook said is passed on.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "condition": "logbook refuses a field"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "bad_field",
+      "reason": "the record store refused a field"
+    }
+  }
+}

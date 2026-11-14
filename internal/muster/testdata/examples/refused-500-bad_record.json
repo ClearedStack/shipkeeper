@@ -1,0 +1,22 @@
+{
+  "about": "A stored record contradicts the tables. It is set aside, not handed out.",
+  "given": {
+    "condition": "the queue says sextant is next for an item that is live"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 500,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "bad_record",
+      "reason": "a stored record was not consistent and has been set aside"
+    }
+  }
+}

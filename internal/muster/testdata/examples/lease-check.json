@@ -1,0 +1,54 @@
+{
+  "about": "Tidegauge is given a live item to check, seven days after it went live.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "building",
+        "lane": "normal",
+        "next": "chartroom"
+      }
+    ],
+    "calls": [
+      {
+        "as": "chartroom",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "chartroom",
+        "method": "POST",
+        "path": "/v1/complete",
+        "body": {
+          "contract": "v1",
+          "lease": "PA-0001.1.1",
+          "state": "live"
+        }
+      }
+    ],
+    "wait": "168h"
+  },
+  "request": {
+    "as": "tidegauge",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "lease": "PA-0001.2.1",
+      "kind": "item",
+      "id": "PA-0001",
+      "state": "live",
+      "lane": "backfill",
+      "attempt": 1,
+      "expires": "2026-01-12T09:01:00Z"
+    }
+  }
+}

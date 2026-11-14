@@ -1,0 +1,30 @@
+{
+  "about": "The cluster does not say in time whose token this is.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "condition": "the cluster does not answer the identity check in time"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 503,
+    "body": {
+      "error": "E_TIMEOUT",
+      "cause": "busy",
+      "reason": "the identity check took too long; try again"
+    }
+  }
+}

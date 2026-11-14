@@ -1,0 +1,25 @@
+{
+  "about": "The target of an edit proposal is not in the ownership map.",
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/edits",
+    "body": {
+      "contract": "v1",
+      "target": "catalog.made-up-element.description",
+      "change": "The sample description should say which made-up rule it follows.",
+      "reason": "It reads as if no rule applies.",
+      "pow": "2026-01-05.abd02",
+      "honeypot": "",
+      "source": "203.0.113.7"
+    }
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "bad_field",
+      "reason": "the target is not in the ownership map"
+    }
+  }
+}

@@ -1,0 +1,100 @@
+# Least-privilege RBAC for Shipkeeper.
+#
+# Shipkeeper runs as system:serviceaccount:clearedstack:shipkeeper, which is
+# the identity Muster's contract v1 requires on POST /v1/health. It receives
+# namespace-scoped Roles in clearedstack and cs-workers only: server-side apply
+# of Deployments, Services, and NetworkPolicies, plus read-only observation of
+# Pods and Events. It has no access to Secrets, no delete verbs, and no
+# cluster-wide permissions.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: shipkeeper
+  namespace: clearedstack
+  labels:
+    app.kubernetes.io/name: shipkeeper
+    app.kubernetes.io/part-of: clearedstack
+    app.kubernetes.io/component: control-plane
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shipkeeper
+  namespace: clearedstack
+  labels:
+    app.kubernetes.io/name: shipkeeper
+    app.kubernetes.io/part-of: clearedstack
+    app.kubernetes.io/component: control-plane
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods", "events"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shipkeeper
+  namespace: clearedstack
+  labels:
+    app.kubernetes.io/name: shipkeeper
+    app.kubernetes.io/part-of: clearedstack
+    app.kubernetes.io/component: control-plane
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: shipkeeper
+subjects:
+  - kind: ServiceAccount
+    name: shipkeeper
+    namespace: clearedstack
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shipkeeper
+  namespace: cs-workers
+  labels:
+    app.kubernetes.io/name: shipkeeper
+    app.kubernetes.io/part-of: clearedstack
+    app.kubernetes.io/component: control-plane
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods", "events"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shipkeeper
+  namespace: cs-workers
+  labels:
+    app.kubernetes.io/name: shipkeeper
+    app.kubernetes.io/part-of: clearedstack
+    app.kubernetes.io/component: control-plane
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: shipkeeper
+subjects:
+  - kind: ServiceAccount
+    name: shipkeeper
+    namespace: clearedstack

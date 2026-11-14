@@ -1,0 +1,17 @@
+{
+  "about": "The body is not JSON.",
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "raw": "lease please"
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "not_json",
+      "reason": "the request is not one json value"
+    }
+  }
+}

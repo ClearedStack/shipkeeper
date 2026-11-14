@@ -1,0 +1,40 @@
+{
+  "about": "A lease that was never given.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/heartbeat",
+    "body": {
+      "contract": "v1",
+      "lease": "PA-0001.999.1"
+    }
+  },
+  "expect": {
+    "status": 409,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "lease_not_held",
+      "reason": "the lease is not held"
+    }
+  }
+}
