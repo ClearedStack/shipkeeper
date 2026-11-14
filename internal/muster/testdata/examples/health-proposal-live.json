@@ -1,0 +1,95 @@
+{
+  "about": "Shipkeeper reports a new image digest for Conn: the proposal that was building in Conn's repository goes live.",
+  "given": {
+    "calls": [
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "The sample description should say which made-up rule it follows.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.208bd",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      },
+      {
+        "as": "countersign",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "countersign",
+        "method": "POST",
+        "path": "/v1/complete",
+        "body": {
+          "contract": "v1",
+          "lease": "EP-0001.1.1",
+          "state": "approved"
+        }
+      },
+      {
+        "as": "bellbuoy",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "bellbuoy",
+        "method": "POST",
+        "path": "/v1/complete",
+        "body": {
+          "contract": "v1",
+          "lease": "EP-0001.2.1",
+          "state": "building"
+        }
+      },
+      {
+        "as": "shipkeeper",
+        "method": "POST",
+        "path": "/v1/health",
+        "body": {
+          "contract": "v1",
+          "reports": [
+            {
+              "component": "conn",
+              "state": "healthy",
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "shipkeeper",
+    "method": "POST",
+    "path": "/v1/health",
+    "body": {
+      "contract": "v1",
+      "reports": [
+        {
+          "component": "conn",
+          "state": "healthy",
+          "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "received": 1,
+      "replayed": 0,
+      "live": 1
+    }
+  }
+}

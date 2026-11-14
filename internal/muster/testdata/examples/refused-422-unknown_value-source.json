@@ -1,0 +1,22 @@
+{
+  "about": "A candidate from a source Muster does not know.",
+  "request": {
+    "as": "trawl",
+    "method": "POST",
+    "path": "/v1/items",
+    "body": {
+      "contract": "v1",
+      "source": "made-up-source",
+      "title": "A made-up title",
+      "address": "https://example.org/made-up/1"
+    }
+  },
+  "expect": {
+    "status": 422,
+    "body": {
+      "error": "E_NEEDS_SUBTOOL",
+      "cause": "unknown_value",
+      "reason": "this source is not known"
+    }
+  }
+}

@@ -2,8 +2,11 @@ package kube_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -159,4 +162,55 @@ func TestErrorsComeFromTheCatalogueAndNameNothing(t *testing.T) {
 	srv, c = setup(t)
 	srv.Close()
 	check("server gone", c.Apply(ctx, object(deployment), false), errs.KubeUnreachable, srv)
+}
+
+func TestTokenFileReloadedOnRotation(t *testing.T) {
+	srv, c := setup(t)
+	ctx := context.Background()
+	tokPath := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(tokPath, []byte("token-v1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c.TokenFile = tokPath
+	srv.Token = "token-v1"
+	if err := c.Apply(ctx, object(deployment), true); err != nil {
+		t.Fatalf("initial token: %v", err)
+	}
+
+	srv.Token = "token-v2"
+	if err := c.Apply(ctx, object(deployment), true); !errors.Is(err, errs.KubeRefused) {
+		t.Fatalf("stale token: got %v, want %v", err, errs.KubeRefused)
+	}
+	if err := os.WriteFile(tokPath, []byte("token-v2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Apply(ctx, object(deployment), false); err != nil {
+		t.Fatalf("rotated token: %v", err)
+	}
+}
+
+func TestObserveExistingHandlesUnmanagedWorkloads(t *testing.T) {
+	srv, c := setup(t)
+	ctx := context.Background()
+
+	obs, hasDep, err := c.ObserveExisting(ctx, "clearedstack", "logbook", "app.kubernetes.io/name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasDep || len(obs.Pods) != 0 {
+		t.Fatalf("empty namespace: hasDep=%v pods=%d", hasDep, len(obs.Pods))
+	}
+
+	srv.AddPod("clearedstack", json.RawMessage(`{
+		"metadata":{"name":"logbook-0","labels":{"app.kubernetes.io/name":"logbook"}},
+		"spec":{"containers":[{"name":"logbook","image":"lazarette.clearedstack.svc.cluster.local:5000/logbook@sha256:9999999999999999999999999999999999999999999999999999999999999999"}]},
+		"status":{"phase":"Running","conditions":[{"type":"Ready","status":"True"}]}
+	}`))
+	obs, hasDep, err = c.ObserveExisting(ctx, "clearedstack", "logbook", "app.kubernetes.io/name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasDep || len(obs.Pods) != 1 || !strings.Contains(obs.Pods[0].Spec.Containers[0].Image, "@sha256:9999") {
+		t.Fatalf("statefulset pod: hasDep=%v pods=%+v", hasDep, obs.Pods)
+	}
 }

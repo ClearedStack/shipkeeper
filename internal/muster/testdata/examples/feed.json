@@ -1,0 +1,43 @@
+{
+  "about": "Conn subscribes to the live feed and is sent the current picture at once: the depths, then the latest health of each component.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "shipkeeper",
+        "method": "POST",
+        "path": "/v1/health",
+        "body": {
+          "contract": "v1",
+          "reports": [
+            {
+              "component": "sextant",
+              "state": "idle"
+            },
+            {
+              "component": "assay",
+              "state": "degraded",
+              "code": "E_TIMEOUT"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "conn",
+    "method": "GET",
+    "path": "/v1/feed"
+  },
+  "expect": {
+    "status": 200,
+    "stream": "id: 1\nevent: depths\ndata: {\"at\":\"2026-01-05T09:00:00Z\",\"urgent\":0,\"normal\":1,\"backfill\":0,\"needs_subtool\":0}\n\nid: 2\nevent: health\ndata: {\"at\":\"2026-01-05T09:00:00Z\",\"component\":\"assay\",\"state\":\"degraded\",\"code\":\"E_TIMEOUT\"}\n\nid: 3\nevent: health\ndata: {\"at\":\"2026-01-05T09:00:00Z\",\"component\":\"sextant\",\"state\":\"idle\"}\n\n"
+  }
+}

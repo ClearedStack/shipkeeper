@@ -1,0 +1,41 @@
+{
+  "about": "A worker reports E_PARSE: work on the item stops and it is held in its state.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/fail",
+    "body": {
+      "contract": "v1",
+      "lease": "PA-0001.1.1",
+      "code": "E_PARSE"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "id": "PA-0001",
+      "state": "recorded",
+      "held": true
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "about": "Bellbuoy is given an incident: an item a worker stopped, with the worker, the code and the state it was in.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/fail",
+        "body": {
+          "contract": "v1",
+          "lease": "PA-0001.1.1",
+          "code": "E_PARSE"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "bellbuoy",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "lease": "incident:PA-0001.2.1",
+      "kind": "incident",
+      "id": "PA-0001",
+      "state": "recorded",
+      "lane": "normal",
+      "attempt": 1,
+      "expires": "2026-01-05T09:01:00Z",
+      "incident": {
+        "id": "PA-0001",
+        "worker": "sextant",
+        "code": "E_PARSE",
+        "state": "recorded"
+      }
+    }
+  }
+}

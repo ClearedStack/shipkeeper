@@ -1,0 +1,58 @@
+{
+  "about": "A candidate at an address already on record: the item that has it and its state now, and nothing new.",
+  "given": {
+    "calls": [
+      {
+        "as": "trawl",
+        "method": "POST",
+        "path": "/v1/items",
+        "body": {
+          "contract": "v1",
+          "source": "sam-gov",
+          "title": "A made-up notice about a made-up tool",
+          "address": "https://example.org/made-up/notice-1",
+          "result": {
+            "seen": "made-up page"
+          }
+        }
+      },
+      {
+        "as": "trawl",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "trawl",
+        "method": "POST",
+        "path": "/v1/complete",
+        "body": {
+          "contract": "v1",
+          "lease": "PA-0001.1.1",
+          "state": "recorded"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/items",
+    "body": {
+      "contract": "v1",
+      "source": "github-issues",
+      "title": "Another made-up title",
+      "address": "https://example.org/made-up/notice-1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "id": "PA-0001",
+      "state": "recorded",
+      "duplicate": true
+    }
+  }
+}

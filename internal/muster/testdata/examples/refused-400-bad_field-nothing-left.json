@@ -1,0 +1,25 @@
+{
+  "about": "An edit proposal that is nothing but markup: nothing is left once it is stripped.",
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/edits",
+    "body": {
+      "contract": "v1",
+      "target": "catalog.sample-calculator.description",
+      "change": "<script>made_up()</script><p></p>",
+      "reason": "It reads as if no rule applies.",
+      "pow": "2026-01-05.c0c41",
+      "honeypot": "",
+      "source": "203.0.113.7"
+    }
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "bad_field",
+      "reason": "nothing is left of the text once markup is removed"
+    }
+  }
+}

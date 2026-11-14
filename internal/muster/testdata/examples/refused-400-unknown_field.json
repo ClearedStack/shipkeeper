@@ -1,0 +1,20 @@
+{
+  "about": "The body has a field the call does not define.",
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1",
+      "worker": "assay"
+    }
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "unknown_field",
+      "reason": "the request has a field this call does not define"
+    }
+  }
+}

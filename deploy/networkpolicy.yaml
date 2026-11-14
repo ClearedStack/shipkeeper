@@ -1,0 +1,93 @@
+# Default-deny policy for clearedstack (matches logbook/deploy and
+# plainforge/deploy) plus the egress-only rules Shipkeeper needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: clearedstack
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Shipkeeper accepts no pod-to-pod ingress at all (kubelet probes /healthz
+# directly from the node) and opens outbound connections only to:
+#   - Cluster DNS in kube-system (UDP/TCP 53)
+#   - Plainforge in clearedstack (TCP 80/8080 for Git smart HTTP)
+#   - Lazarette in clearedstack (TCP 5000 for OCI manifest digest checks)
+#   - Muster in clearedstack (TCP 80/8080 for POST /v1/health)
+#   - Private cluster addresses (TCP 443/6443 for the Kubernetes API server)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipkeeper
+  namespace: clearedstack
+  labels:
+    app.kubernetes.io/name: shipkeeper
+    app.kubernetes.io/part-of: clearedstack
+    app.kubernetes.io/component: control-plane
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: shipkeeper
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: clearedstack
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: plainforge
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: clearedstack
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: lazarette
+      ports:
+        - protocol: TCP
+          port: 5000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: clearedstack
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: muster
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8080
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+        - ipBlock:
+            cidr: 172.16.0.0/12
+        - ipBlock:
+            cidr: 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443

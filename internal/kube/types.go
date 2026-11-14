@@ -10,6 +10,11 @@ type Deployment struct {
 	} `json:"metadata"`
 	Spec struct {
 		Replicas *int32 `json:"replicas"`
+		Template struct {
+			Spec struct {
+				Containers []ContainerSpec `json:"containers"`
+			} `json:"spec"`
+		} `json:"template"`
 	} `json:"spec"`
 	Status struct {
 		ObservedGeneration int64 `json:"observedGeneration"`
@@ -18,6 +23,11 @@ type Deployment struct {
 		ReadyReplicas      int32 `json:"readyReplicas"`
 		AvailableReplicas  int32 `json:"availableReplicas"`
 	} `json:"status"`
+}
+
+type ContainerSpec struct {
+	Name  string `json:"name"`
+	Image string `json:"image"`
 }
 
 type Address struct {
@@ -52,8 +62,9 @@ type Pod struct {
 		Name string `json:"name"`
 	} `json:"metadata"`
 	Spec struct {
-		NodeName string `json:"nodeName"`
-		Hostname string `json:"hostname"`
+		NodeName   string          `json:"nodeName"`
+		Hostname   string          `json:"hostname"`
+		Containers []ContainerSpec `json:"containers"`
 	} `json:"spec"`
 	Status struct {
 		Phase             string            `json:"phase"`

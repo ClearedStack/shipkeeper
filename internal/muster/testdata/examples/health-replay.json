@@ -1,0 +1,70 @@
+{
+  "about": "Shipkeeper reports a new image digest for a worker: the item that worker paused is replayed.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/needs_subtool",
+        "body": {
+          "contract": "v1",
+          "lease": "PA-0001.1.1"
+        }
+      },
+      {
+        "as": "shipkeeper",
+        "method": "POST",
+        "path": "/v1/health",
+        "body": {
+          "contract": "v1",
+          "reports": [
+            {
+              "component": "sextant",
+              "state": "healthy",
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "shipkeeper",
+    "method": "POST",
+    "path": "/v1/health",
+    "body": {
+      "contract": "v1",
+      "reports": [
+        {
+          "component": "sextant",
+          "state": "healthy",
+          "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "received": 1,
+      "replayed": 1,
+      "live": 0
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "about": "Countersign is given an edit proposal that is waiting for the owner.",
+  "given": {
+    "calls": [
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "The sample description should say which made-up rule it follows.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.208bd",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "countersign",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "lease": "EP-0001.1.1",
+      "kind": "proposal",
+      "id": "EP-0001",
+      "state": "pending_approval",
+      "lane": "normal",
+      "attempt": 1,
+      "expires": "2026-01-05T09:01:00Z",
+      "proposal": {
+        "target": "catalog.sample-calculator.description",
+        "repository": "clearedstack.com",
+        "file": "src/data/sample-catalog.json",
+        "edit_kind": "DATA",
+        "change": "The sample description should say which made-up rule it follows.",
+        "reason": "It reads as if no rule applies."
+      }
+    }
+  }
+}

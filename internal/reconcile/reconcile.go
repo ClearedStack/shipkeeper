@@ -5,12 +5,15 @@ package reconcile
 
 import (
 	"context"
+	"sync"
 
 	"github.com/ClearedStack/shipkeeper/internal/errs"
 	"github.com/ClearedStack/shipkeeper/internal/health"
 	"github.com/ClearedStack/shipkeeper/internal/kube"
 	"github.com/ClearedStack/shipkeeper/internal/manifest"
+	"github.com/ClearedStack/shipkeeper/internal/muster"
 	"github.com/ClearedStack/shipkeeper/internal/platform"
+	"github.com/ClearedStack/shipkeeper/internal/registry"
 )
 
 // Cluster is the part of the Kubernetes client the reconciler uses.
@@ -19,14 +22,25 @@ type Cluster interface {
 	Observe(ctx context.Context, namespace, name, labelKey string) (kube.Observed, error)
 }
 
+// ExistingObserver is optionally implemented by Cluster to inspect workloads
+// that already run in the cluster when Plainforge has no app.yaml for them.
+type ExistingObserver interface {
+	ObserveExisting(ctx context.Context, namespace, name, labelKey string) (kube.Observed, bool, error)
+}
+
 // Reconciler wires Shipkeeper to its neighbours.
 type Reconciler struct {
-	Plainforge    platform.Plainforge
-	Lazarette     platform.Lazarette
-	Muster        platform.Muster
-	Cluster       Cluster
-	Registry      string // host[:port] images are pulled from
-	ClusterDomain string // e.g. cluster.local
+	Plainforge     platform.Plainforge
+	Lazarette      platform.Lazarette
+	Muster         platform.Muster // detailed local sink used by Once
+	ContractMuster muster.Sender   // Muster contract v1 POST /v1/health client
+	Cluster        Cluster
+	Registry       string               // host[:port] images are pulled from
+	ClusterDomain  string               // e.g. cluster.local
+	Components     []registry.Component // defaults to registry.All()
+
+	mu      sync.Mutex
+	pending map[string]muster.Report
 }
 
 // Result says how far one pass got.

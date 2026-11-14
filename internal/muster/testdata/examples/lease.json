@@ -1,0 +1,61 @@
+{
+  "about": "A worker asks for its next step and is given an item: what it is, what state it is in, and what earlier workers found.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/complete",
+        "body": {
+          "contract": "v1",
+          "lease": "PA-0001.1.1",
+          "state": "observed",
+          "result": {
+            "job": "made-up job"
+          }
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "assay",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "lease": "PA-0001.2.1",
+      "kind": "item",
+      "id": "PA-0001",
+      "state": "observed",
+      "lane": "normal",
+      "attempt": 1,
+      "expires": "2026-01-05T09:01:00Z",
+      "results": {
+        "sextant": {
+          "job": "made-up job"
+        }
+      }
+    }
+  }
+}

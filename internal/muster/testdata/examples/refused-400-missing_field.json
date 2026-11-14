@@ -1,0 +1,19 @@
+{
+  "about": "A required field is missing: a heartbeat that names no lease.",
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/heartbeat",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "missing_field",
+      "reason": "a required field is missing"
+    }
+  }
+}

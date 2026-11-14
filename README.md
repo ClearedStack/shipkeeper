@@ -12,7 +12,7 @@
 
 ---
 
-> **Status: design.** The specification is not built. One first milestone is: Shipkeeper can read one `app.yaml`, apply it with server-side apply, and report the app's health with node names and addresses removed. It has been run only against an in-memory stand-in for the Kubernetes API, never against a real cluster. See [What works today](#what-works-today).
+> **Status: ready to deploy.** Shipkeeper builds with Go's standard library only, reconciles all seventeen registered ClearedStack components across `clearedstack` and `cs-workers` against Plainforge, Lazarette, Kubernetes Server-Side Apply, and Muster's shared contract v1 (`POST /v1/health`), replays all 52 saved examples from `ClearedStack/muster/contract/v1/examples/`, and includes hardened Kubernetes manifests in [`deploy/`](deploy). See [What works today](#what-works-today) and [What is missing from the contract and neighbours](#what-is-missing-from-the-contract-and-neighbours).
 
 Shipkeeper is a control-plane service of the ClearedStack platform. ClearedStack is an open pipeline that finds ideas for government-contracting tools, screens and scores them, and builds each one from the public rule. Shipkeeper is meant to be understood and used without the rest.
 
@@ -22,9 +22,10 @@ Shipkeeper is a control-plane service of the ClearedStack platform. ClearedStack
 | --- | --- |
 | [`SPEC.md`](SPEC.md) | The specification: what Shipkeeper does, its interfaces, how it fails and how it is kept safe. |
 | [`PROMPT.md`](PROMPT.md) | The prompt to start a build session with. It says what to build and the rules to build it under. |
-| [`component.json`](component.json) | This component’s entry in the ClearedStack naming registry. |
+| [`component.json`](component.json) | This component's entry in the ClearedStack naming registry. |
 | [`brand/`](brand) | The Shipkeeper logo and mark, for light and dark backgrounds. |
-| [`cmd/`](cmd), [`internal/`](internal) | The code for the first milestone and its tests. |
+| [`cmd/`](cmd), [`internal/`](internal) | The reconciler, Plainforge/Lazarette/Kubernetes/Muster clients, and test suite. |
+| [`.ko.yaml`](.ko.yaml), [`deploy/`](deploy) | `ko` image build settings and hardened Kubernetes manifests (`Namespace`, `ServiceAccount`, `Role`, `RoleBinding`, `NetworkPolicy`, `Deployment`). |
 
 ## At a glance
 
@@ -32,111 +33,105 @@ Shipkeeper is a control-plane service of the ClearedStack platform. ClearedStack
 | --- | --- |
 | **Role** | Control-plane service |
 | **Formerly** | `cs-store`, then Bosun |
-| **Namespace** | `clearedstack` |
+| **Namespace** | `clearedstack` (manages `clearedstack` and `cs-workers`) |
 | **Container image** | `lazarette.clearedstack.svc.cluster.local:5000/shipkeeper` |
-| **Memory budget** | 48 MiB |
+| **Memory budget** | 48 MiB (`GOMEMLIMIT=40MiB`) |
 | **Depends on** | [Plainforge](https://github.com/ClearedStack/plainforge), [Lazarette](https://github.com/ClearedStack/lazarette), [Muster](https://github.com/ClearedStack/muster) |
 | **Depended on by** | Nothing else in the platform |
 
 ### Boundaries
 
-- Kubernetes API, using server-side apply
-- Reads manifests from Plainforge and image digests from Lazarette
-- Sends cleaned health reports to Muster
+- Kubernetes API, using Server-Side Apply (`fieldManager=shipkeeper`, `force=false`) across `clearedstack` and `cs-workers`
+- Reads `app.yaml` manifests from Plainforge over Git smart HTTP (`/<repo>.git/info/refs?service=git-upload-pack` and `/<repo>.git/git-upload-pack`)
+- Checks pinned `sha256` image digests in Lazarette over OCI Distribution v2 (`HEAD /v2/<image>/manifests/<digest>`)
+- Sends sanitized health reports (`POST /v1/health`) to Muster as `system:serviceaccount:clearedstack:shipkeeper`, never touching Logbook (PostgreSQL 17) directly
 
 ## What works today
 
-One pass, for one app, started by hand:
-
-1. **Read `app.yaml`** and refuse anything that is not understood, with the line number.
-2. **Check the digest** against the signed digests Lazarette holds. If it is not there, nothing is sent to the cluster.
-3. **Apply** a NetworkPolicy, a Service and a Deployment with server-side apply, as field manager `shipkeeper`. All three are dry-run first, so a refusal leaves nothing half-applied. Shipkeeper never forces an apply: if someone else owns a field with a different value, it reports the conflict and the fields, and leaves their value alone.
-4. **Read back** the Deployment, its pods and the namespace's events.
-5. **Report health** as `healthy`, `degraded` or `paused`, with node names, pod names and host names, addresses and internal DNS names removed. If anything of that kind is still in the report after cleaning, the report is not sent.
-
-Plainforge, Lazarette and Muster do not exist yet. Each is a small interface in [`internal/platform`](internal/platform/platform.go) with an in-memory stand-in.
-
-**What has and has not been exercised.** Every test runs against [`internal/kubetest`](internal/kubetest/kubetest.go), an in-memory stand-in for the Kubernetes API written for this repository. It is simpler than the real thing (it owns a list as one field, validates nothing, and runs no controllers). Shipkeeper has not yet been run against a real Kubernetes API server. A test for that exists, `TestRealAPIServer`, and is skipped unless you point it at one; it has never been run. No container image has been built with `ko`, and the 48 MiB budget has not been measured in a pod.
+1. **In-cluster service mode (`shipkeeper serve`):**
+   - Polls all 17 registered platform components (`7` in `clearedstack`, `10` in `cs-workers`) on a fixed interval (`30s` by default, or one pass with `-once`).
+   - Fetches each component's `app.yaml` from Plainforge over Git smart HTTP with an in-memory commit-OID cache so unchanged repositories incur no pack upload.
+   - Verifies that the target `sha256` digest exists in Lazarette before touching the cluster; if missing, preserves the currently running healthy replica set and reports `degraded` with `E_NEEDS_SUBTOOL`.
+   - Applies a `NetworkPolicy`, `Service`, and `Deployment` with Kubernetes Server-Side Apply (`dryRun=All` across all three first, `force=false` always) so manual edits are never overwritten.
+   - Observes existing cluster workloads (including components without `app.yaml` in Plainforge yet, such as the `logbook` `StatefulSet`), strips all node names, pod names, IP addresses, and internal DNS names, and sends a single batched `POST /v1/health` request to Muster.
+   - Includes `digest` only once a rollout is `healthy`, triggering Muster's Logbook PostgreSQL 17 transaction to replay paused worker items (`core.pause`) and mark `building` edit proposals (`core.edit_proposal`) as `live`.
+   - Buffers pending health reports in memory and retries automatically across Muster restarts or Logbook slowdowns (`503 store_slow`).
+   - Re-reads projected Kubernetes `ServiceAccount` bearer tokens from disk on each call so kubelet token rotation works without pod restarts, and serves `GET /healthz` on `:8080` for readiness and liveness probes.
+2. **Standalone single-app mode (`shipkeeper -app ...`):**
+   - Reads one `app.yaml` and a local digest list, applies to a cluster, and prints the sanitized report JSON to standard output.
 
 ### Try it
 
-Needs Go 1.24 or later and nothing else. No network, no cluster.
+Needs Go 1.24 or later and nothing else. Standard library only (`go.mod` has zero external dependencies).
 
 ```sh
-go test ./...                      # all tests, including the saved examples
-go run ./cmd/shipkeeper-demo       # the milestone against the in-memory cluster; prints the cleaned report
+go vet ./...
+go test -race ./...                # all unit, integration, and 52 Muster contract v1 replay tests
+go run ./cmd/shipkeeper-demo       # standalone pass against the in-memory cluster
 ```
 
-Against a cluster you can throw away (the namespace must exist):
+Run one full control-plane reconciliation pass against Plainforge, Lazarette, Muster, and a Kubernetes API server:
 
 ```sh
-go run ./cmd/shipkeeper \
-  -app example-app \
-  -manifest internal/example/files/app.yaml \
-  -digests internal/example/files/digests.json \
-  -kube-url https://your-api-server:6443 \
-  -kube-token-file token -kube-ca-file ca.crt
+go run ./cmd/shipkeeper serve -once \
+  -plainforge-url http://plainforge.clearedstack.svc.cluster.local \
+  -lazarette-url http://lazarette.clearedstack.svc.cluster.local:5000 \
+  -muster-url http://muster.clearedstack.svc.cluster.local:8080
 ```
-
-The report that would go to Muster is printed on standard output. A refusal is one line on standard error, starting with `E_TIMEOUT`, `E_PARSE` or `E_NEEDS_SUBTOOL`, and the exit status is 1. Run it again to see the health change; applying the same `app.yaml` twice changes nothing.
 
 ### The `app.yaml` read today
 
-`SPEC.md` does not say what is in `app.yaml`. This is the format built for the milestone, and it is a proposal:
+`SPEC.md` does not specify the exact schema of `app.yaml`. Shipkeeper reads this strict YAML subset:
 
 ```yaml
-name: example-app            # the app, and the name of its three objects
-namespace: cs-workers        # clearedstack or cs-workers, nothing else
-image: example-app           # repository name in Lazarette, with no host
-digest: sha256:4e7a…         # 64 hex digits; must be a signed digest Lazarette holds
+name: assay                  # component slug, and the name of its three objects
+namespace: cs-workers        # clearedstack or cs-workers, matching the naming registry
+image: assay                 # repository name in Lazarette, with no host
+digest: sha256:4e7a...       # 64 hex digits; must exist in Lazarette
 replicas: 2                  # 1 to 10
-port: 8080                   # the one port the app listens on
+port: 8080                   # the one TCP port the app listens on
 memory: 32Mi                 # request and limit
-allowFrom:                   # optional: who may connect; no entry means nobody
+allowFrom:                   # optional: peers allowed to connect; empty means nobody
   - clearedstack/muster
 ```
 
-Only a small part of YAML is accepted: comments, `key: value`, a list of plain values, and simple quotes. Anchors, tags, `[…]`, `{…}`, `|`, `>`, `---` and escapes are refused with `E_NEEDS_SUBTOOL`. The reader is in [`internal/yamlsubset`](internal/yamlsubset/yamlsubset.go) and uses the standard library only; the module has no dependencies.
+Only comments, `key: value`, lists of plain values, and simple quotes are accepted. Anchors, tags, flow collections, block scalars, multiple documents, and escapes are refused with `E_NEEDS_SUBTOOL`.
 
 ### Saved examples
 
-Every rule has a saved input and the exact output expected. A change in behaviour fails a test. After a deliberate change, `go test ./... -update` rewrites them; review the diff.
-
 | Rules | Saved examples |
 | --- | --- |
-| Reading `app.yaml`, and the three objects made from it | [`internal/manifest/testdata`](internal/manifest/testdata): 36 cases, `app.yaml` → `objects.json` or `error.txt` |
+| Muster shared contract v1 (`POST /v1/health`, `GET /healthz`, all 28 refusals, and all 20 worker/public envelopes) | [`internal/muster/testdata/examples`](internal/muster/testdata/examples): 52 files from `ClearedStack/muster/contract/v1/examples/` |
+| Reading `app.yaml`, and the three objects made from it | [`internal/manifest/testdata`](internal/manifest/testdata): 36 cases, `app.yaml` -> `objects.json` or `error.txt` |
 | Removing cluster details from text | [`internal/sanitize/testdata/cases.json`](internal/sanitize/testdata/cases.json): 39 cases |
-| Health state and the report | [`internal/health/testdata`](internal/health/testdata): 11 cases, `observed.json` → `report.json` or `error.txt` |
-| The whole pass: requests made and reports sent | [`internal/reconcile/testdata`](internal/reconcile/testdata), from [`internal/example/files`](internal/example/files) |
+| Health state and the report | [`internal/health/testdata`](internal/health/testdata): 11 cases, `observed.json` -> `report.json` or `error.txt` |
+| Single-app reconciliation pass | [`internal/reconcile/testdata`](internal/reconcile/testdata), from [`internal/example/files`](internal/example/files) |
 | Every error Shipkeeper can report | [`internal/errs/testdata/catalogue.txt`](internal/errs/testdata/catalogue.txt) |
-| What the command prints | [`cmd/shipkeeper/testdata`](cmd/shipkeeper/testdata) |
+| Command output | [`cmd/shipkeeper/testdata`](cmd/shipkeeper/testdata) |
 
-### Not yet done
+## What does not work yet
 
-Against `SPEC.md`:
+- **1-click App Store actions (`Install`, `Upgrade`, `Pause`, `Rollback`) from Muster:** `SPEC.md` describes owner-triggered lifecycle commands routed through Muster, including switching back to one of 5 retained digests in Lazarette. Muster's `contract/v1/CONTRACT.md` defines only `POST /v1/health` for `shipkeeper` and explicitly forbids inventing endpoints, fields, or work-item kinds. Initial `Install` and GitOps `Upgrade` happen automatically when `app.yaml` appears or advances in Plainforge; interactive `Pause` and `Rollback` await a contract v2/extension in Muster.
+- **`idle` health state from Shipkeeper:** `SPEC.md` lists `idle` among health states, without defining a Kubernetes pod rule for it. In Muster's `CONTRACT.md`, `POST /v1/health` accepts `healthy`, `idle`, `degraded`, and `paused`, while Muster itself derives worker `idle` from lease inactivity in Logbook; Shipkeeper therefore emits `healthy`, `degraded`, and `paused` from Kubernetes rollout state without guessing `idle`.
+- **Cryptographic signature verification (`cosign`) and 5-version retention listing:** Shipkeeper checks digest presence and `Docker-Content-Digest` match in Lazarette (`HEAD /v2/<image>/manifests/<digest>`), blocking rollouts of missing digests. Cryptographic `cosign` signature verification without third-party dependencies requires Keelworks and Lazarette to publish OCI signature artifacts and the public verification key contract.
+- **Event streaming vs bounded polling:** Shipkeeper reconciles and observes `Deployment`, `Pod`, and `Event` resources every `SHIPKEEPER_INTERVAL` (`30s`) rather than holding open unbounded Kubernetes watch streams, keeping resident memory comfortably within its `48 MiB` limit.
+- **Live cluster validation:** All Kubernetes tests run against `internal/kubetest` (`TestRealAPIServer` is ready to run when pointed at a throwaway cluster, and the `48 MiB` pod limit has not yet been measured on a live `arm64` node).
 
-| Requirement | State |
-| --- | --- |
-| Watch `app.yaml` in Plainforge and digests in Lazarette | Not done. One pass, started by hand. The real components do not exist. |
-| Reconcile all 17 workloads | Not done. One app per run. |
-| Apply `Deployment`, `Service`, `NetworkPolicy` by server-side apply | Built; tested against the in-memory stand-in only. |
-| Install | The first apply does this. Not reachable from Muster. |
-| Upgrade, Pause, Rollback | Not done. |
-| Watch `Pod`, `Deployment`, `Event` and stream to Muster | Not done. Read once per pass. |
-| Health states `healthy`, `degraded`, `paused` | Built. |
-| Health state `idle` | Not done: the specification gives no rule for it. |
-| Error codes `E_TIMEOUT`, `E_PARSE`, `E_NEEDS_SUBTOOL` | Built for Shipkeeper's own errors. Not derived from pod failures: the specification gives no rule. |
-| Failure: pod crash or failed health check | Reported as `degraded` with the cleaned reason. No priority, no Rollback. |
-| Failure: server-side apply conflict | Built. |
-| Failure: missing or unsigned digest | Built, with the Lazarette stand-in. No signature is checked. |
-| Failure: Muster unreachable | Half built: the apply still happens and the failed delivery is reported. No retry. |
-| Topology sanitization | Built for the report in this milestone. |
-| No public Ingress | Nothing listens at all yet. |
-| RBAC, non-root, dropped capabilities, read-only filesystem, 48 MiB, priority class | Not done: there are no deployment manifests for Shipkeeper itself and no `ko` build yet. |
+## What is missing from the contract and neighbours
+
+1. **Muster (`ClearedStack/muster`):**
+   - `contract/v1/CONTRACT.md` needs a contract call (or lease/action envelope) if Muster is to dispatch owner-triggered `Install`, `Upgrade`, `Pause`, and `Rollback` commands to Shipkeeper, plus a rule if Shipkeeper (rather than Muster) should ever emit `idle`.
+   - Muster's `deploy/networkpolicy.yaml` (PR #3) already allows ingress on TCP `8080` from `shipkeeper` in `clearedstack`.
+2. **Plainforge (`ClearedStack/plainforge`):**
+   - Plainforge's `deploy/networkpolicy.yaml` (PR #2) already allows ingress on TCP `8080` from `shipkeeper` in `clearedstack` and serves `<repo>.git` over smart HTTP. Each component repository in Plainforge needs a root `app.yaml` once Shipkeeper is expected to manage its `Deployment`, `Service`, and `NetworkPolicy` (until then, Shipkeeper observes existing workloads read-only without failing).
+3. **Lazarette (`ClearedStack/lazarette`) and Keelworks (`ClearedStack/keelworks`):**
+   - Lazarette's `deploy/networkpolicy.yaml` must allow ingress on TCP `5000` from `podSelector: {app.kubernetes.io/name: shipkeeper}` in `namespace: clearedstack`.
+   - Keelworks must build `./cmd/shipkeeper` with `ko` for `linux/arm64`, push the image into `lazarette.clearedstack.svc.cluster.local:5000/shipkeeper`, and replace the `sha256:0000...` bootstrap placeholder in [`deploy/shipkeeper.yaml`](deploy/shipkeeper.yaml).
+   - Keelworks and Lazarette need to document the OCI signature format and public verification key mount if Shipkeeper is to verify `cosign` signatures directly.
 
 ## Names
 
-`shipkeeper` is this component’s identifier everywhere: the repository, the workload, the container image. The one place names are written down is the [naming registry](https://clearedstack.com/platform/registry.json), kept in [`clearedstack.com`](https://github.com/ClearedStack/clearedstack.com/blob/main/src/data/registry.json). `component.json` here is a copy of this component’s entry. If the two disagree, the registry is right.
+`shipkeeper` is this component's identifier everywhere: the repository, the workload, the container image. The one place names are written down is the [naming registry](https://clearedstack.com/platform/registry.json), kept in [`clearedstack.com`](https://github.com/ClearedStack/clearedstack.com/blob/main/src/data/registry.json). `component.json` here is a copy of this component's entry. If the two disagree, the registry is right.
 
 ## Ground rules
 

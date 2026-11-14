@@ -1,0 +1,99 @@
+{
+  "about": "The sixth submission from one visitor in a day.",
+  "given": {
+    "calls": [
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "Made-up change 1.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.2afe",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      },
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "Made-up change 2.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.4db1a",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      },
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "Made-up change 3.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.2f426",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      },
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "Made-up change 4.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.8d6a3",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      },
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "Made-up change 5.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.4a32c",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "conn",
+    "method": "POST",
+    "path": "/v1/edits",
+    "body": {
+      "contract": "v1",
+      "target": "catalog.sample-calculator.description",
+      "change": "Made-up change 6.",
+      "reason": "It reads as if no rule applies.",
+      "pow": "2026-01-05.4814e",
+      "honeypot": "",
+      "source": "203.0.113.7"
+    }
+  },
+  "expect": {
+    "status": 429,
+    "body": {
+      "error": "E_TIMEOUT",
+      "cause": "rate_limited",
+      "reason": "too many submissions from this visitor today; try again tomorrow"
+    }
+  }
+}

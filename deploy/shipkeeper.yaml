@@ -1,0 +1,108 @@
+# Shipkeeper control-plane reconciler in clearedstack.
+#
+# Built from source with ko and pushed to Lazarette by Keelworks; replace the
+# zero bootstrap placeholder digest with the signed image digest produced when
+# Lazarette and Keelworks are live in-cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipkeeper
+  namespace: clearedstack
+  labels:
+    app.kubernetes.io/name: shipkeeper
+    app.kubernetes.io/part-of: clearedstack
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/version: v0.1.0-draft
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: shipkeeper
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shipkeeper
+        app.kubernetes.io/part-of: clearedstack
+        app.kubernetes.io/component: control-plane
+    spec:
+      serviceAccountName: shipkeeper
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values: ["arm64"]
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: ["cm3588-plus"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: shipkeeper
+          image: lazarette.clearedstack.svc.cluster.local:5000/shipkeeper@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          args:
+            - serve
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PLAINFORGE_URL
+              value: "http://plainforge.clearedstack.svc.cluster.local"
+            - name: LAZARETTE_URL
+              value: "http://lazarette.clearedstack.svc.cluster.local:5000"
+            - name: LAZARETTE_REGISTRY
+              value: "lazarette.clearedstack.svc.cluster.local:5000"
+            - name: MUSTER_URL
+              value: "http://muster.clearedstack.svc.cluster.local:8080"
+            - name: SHIPKEEPER_LISTEN
+              value: ":8080"
+            - name: SHIPKEEPER_INTERVAL
+              value: "30s"
+            - name: SHIPKEEPER_TIMEOUT
+              value: "10s"
+            - name: GOMEMLIMIT
+              value: "40MiB"
+          resources:
+            requests:
+              cpu: 20m
+              memory: 48Mi
+            limits:
+              cpu: 200m
+              memory: 48Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 2
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault

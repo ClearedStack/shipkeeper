@@ -1,0 +1,16 @@
+{
+  "about": "The wrong method.",
+  "request": {
+    "as": "sextant",
+    "method": "GET",
+    "path": "/v1/lease"
+  },
+  "expect": {
+    "status": 405,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "wrong_method",
+      "reason": "this call does not accept that method"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "about": "The content type is not application/json.",
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "content_type": "text/plain",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 415,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "wrong_type",
+      "reason": "the content type must be application/json"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "about": "The cluster asks whether Muster is up. No token is needed.",
+  "request": {
+    "method": "GET",
+    "path": "/healthz"
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "status": "ok"
+    }
+  }
+}

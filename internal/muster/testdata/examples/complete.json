@@ -1,0 +1,44 @@
+{
+  "about": "A worker reports a finished step: the item changes state and the next worker's step is queued.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/complete",
+    "body": {
+      "contract": "v1",
+      "lease": "PA-0001.1.1",
+      "state": "observed",
+      "result": {
+        "job": "made-up job"
+      }
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "id": "PA-0001",
+      "state": "observed",
+      "next": "assay"
+    }
+  }
+}

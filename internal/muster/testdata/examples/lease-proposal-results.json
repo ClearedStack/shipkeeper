@@ -1,0 +1,75 @@
+{
+  "about": "Bellbuoy is given an approved proposal, with the result Countersign gave under results.countersign.",
+  "given": {
+    "calls": [
+      {
+        "as": "conn",
+        "method": "POST",
+        "path": "/v1/edits",
+        "body": {
+          "contract": "v1",
+          "target": "catalog.sample-calculator.description",
+          "change": "The sample description should say which made-up rule it follows.",
+          "reason": "It reads as if no rule applies.",
+          "pow": "2026-01-05.208bd",
+          "honeypot": "",
+          "source": "203.0.113.7"
+        }
+      },
+      {
+        "as": "countersign",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "countersign",
+        "method": "POST",
+        "path": "/v1/complete",
+        "body": {
+          "contract": "v1",
+          "lease": "EP-0001.1.1",
+          "state": "approved",
+          "result": {
+            "note": "made-up note from the owner"
+          }
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "bellbuoy",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "lease": "EP-0001.2.1",
+      "kind": "proposal",
+      "id": "EP-0001",
+      "state": "approved",
+      "lane": "urgent",
+      "attempt": 1,
+      "expires": "2026-01-05T09:01:00Z",
+      "results": {
+        "countersign": {
+          "note": "made-up note from the owner"
+        }
+      },
+      "proposal": {
+        "target": "catalog.sample-calculator.description",
+        "repository": "clearedstack.com",
+        "file": "src/data/sample-catalog.json",
+        "edit_kind": "DATA",
+        "change": "The sample description should say which made-up rule it follows.",
+        "reason": "It reads as if no rule applies."
+      }
+    }
+  }
+}

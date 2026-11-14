@@ -1,0 +1,60 @@
+{
+  "about": "Waybill is given a live item that Tidegauge sent back to building because a cited source changed.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "live",
+        "lane": "normal"
+      }
+    ],
+    "calls": [
+      {
+        "as": "tidegauge",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      },
+      {
+        "as": "tidegauge",
+        "method": "POST",
+        "path": "/v1/complete",
+        "body": {
+          "contract": "v1",
+          "lease": "PA-0001.1.1",
+          "state": "building",
+          "result": {
+            "changed": "made-up source"
+          }
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "waybill",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 200,
+    "body": {
+      "lease": "PA-0001.2.1",
+      "kind": "item",
+      "id": "PA-0001",
+      "state": "building",
+      "lane": "urgent",
+      "attempt": 1,
+      "expires": "2026-01-05T09:01:00Z",
+      "results": {
+        "tidegauge": {
+          "changed": "made-up source"
+        }
+      }
+    }
+  }
+}

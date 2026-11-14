@@ -1,0 +1,34 @@
+{
+  "about": "Trawl records a candidate at an address not seen before: a new item, with Trawl's step waiting.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0041",
+        "state": "rejected",
+        "lane": "normal"
+      }
+    ]
+  },
+  "request": {
+    "as": "trawl",
+    "method": "POST",
+    "path": "/v1/items",
+    "body": {
+      "contract": "v1",
+      "source": "sam-gov",
+      "title": "A made-up notice about a made-up tool",
+      "address": "https://example.org/made-up/notice-1",
+      "result": {
+        "seen": "made-up page"
+      }
+    }
+  },
+  "expect": {
+    "status": 201,
+    "body": {
+      "id": "PA-0042",
+      "state": "discovered",
+      "next": "trawl"
+    }
+  }
+}

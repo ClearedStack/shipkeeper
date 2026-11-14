@@ -1,0 +1,30 @@
+{
+  "about": "Logbook does not answer in time.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "condition": "logbook takes too long"
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/lease",
+    "body": {
+      "contract": "v1"
+    }
+  },
+  "expect": {
+    "status": 503,
+    "body": {
+      "error": "E_TIMEOUT",
+      "cause": "store_slow",
+      "reason": "the record store took too long"
+    }
+  }
+}

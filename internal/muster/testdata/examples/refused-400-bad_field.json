@@ -1,0 +1,45 @@
+{
+  "about": "A field does not have the form the call requires: a result that is not a JSON object.",
+  "given": {
+    "items": [
+      {
+        "id": "PA-0001",
+        "state": "recorded",
+        "lane": "normal",
+        "next": "sextant"
+      }
+    ],
+    "calls": [
+      {
+        "as": "sextant",
+        "method": "POST",
+        "path": "/v1/lease",
+        "body": {
+          "contract": "v1"
+        }
+      }
+    ]
+  },
+  "request": {
+    "as": "sextant",
+    "method": "POST",
+    "path": "/v1/complete",
+    "body": {
+      "contract": "v1",
+      "lease": "PA-0001.1.1",
+      "state": "observed",
+      "result": [
+        1,
+        2
+      ]
+    }
+  },
+  "expect": {
+    "status": 400,
+    "body": {
+      "error": "E_PARSE",
+      "cause": "bad_field",
+      "reason": "a field does not have the form this call requires"
+    }
+  }
+}
