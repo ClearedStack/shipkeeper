@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/ClearedStack/shipkeeper/internal/manifest"
 )
 
 func TestNoEmDashesAnywhere(t *testing.T) {
@@ -73,6 +75,24 @@ func TestStandardLibraryOnlyAndModulePath(t *testing.T) {
 	}
 }
 
+func TestSelfAppManifestValid(t *testing.T) {
+	raw, err := os.ReadFile("app.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := manifest.Parse(raw)
+	if err != nil {
+		t.Fatalf("app.yaml failed manifest.Parse: %v", err)
+	}
+	if app.Name != "shipkeeper" || app.Namespace != "clearedstack" || app.Image != "shipkeeper" || app.Memory != "48Mi" {
+		t.Fatalf("unexpected parsed app.yaml: %+v", app)
+	}
+	objs, err := manifest.Render(app, "lazarette.clearedstack.svc.cluster.local:5000")
+	if err != nil || len(objs) != 3 {
+		t.Fatalf("manifest.Render(app.yaml): len=%d err=%v", len(objs), err)
+	}
+}
+
 func TestDeployManifestsAndKoConfig(t *testing.T) {
 	digestPinned := regexp.MustCompile(`@sha256:[0-9a-f]{64}`)
 
@@ -101,6 +121,8 @@ func TestDeployManifestsAndKoConfig(t *testing.T) {
 		"serviceAccountName: shipkeeper",
 		"automountServiceAccountToken: true",
 		"image: lazarette.clearedstack.svc.cluster.local:5000/shipkeeper@sha256:",
+		"COSIGN_PUB_FILE",
+		"secretName: keelworks-cosign",
 		"runAsNonRoot: true",
 		"readOnlyRootFilesystem: true",
 		"allowPrivilegeEscalation: false",

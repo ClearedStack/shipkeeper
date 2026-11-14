@@ -3,6 +3,11 @@
 # Built from source with ko and pushed to Lazarette by Keelworks; replace the
 # zero bootstrap placeholder digest with the signed image digest produced when
 # Lazarette and Keelworks are live in-cluster.
+#
+# The Secret keelworks-cosign (created in clearedstack during Keelworks
+# bootstrap, never committed to Git) provides cosign.pub read-only so
+# Shipkeeper cryptographically verifies every ECDSA P-256 SimpleSigning
+# signature in Lazarette before applying a Deployment.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,6 +50,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
+        fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -62,6 +68,8 @@ spec:
               value: "http://plainforge.clearedstack.svc.cluster.local"
             - name: LAZARETTE_URL
               value: "http://lazarette.clearedstack.svc.cluster.local:5000"
+            - name: COSIGN_PUB_FILE
+              value: "/var/run/secrets/keelworks/cosign/cosign.pub"
             - name: LAZARETTE_REGISTRY
               value: "lazarette.clearedstack.svc.cluster.local:5000"
             - name: MUSTER_URL
@@ -106,3 +114,15 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
+          volumeMounts:
+            - name: cosign-public
+              mountPath: /var/run/secrets/keelworks/cosign
+              readOnly: true
+      volumes:
+        - name: cosign-public
+          secret:
+            secretName: keelworks-cosign
+            defaultMode: 0400
+            items:
+              - key: cosign.pub
+                path: cosign.pub
