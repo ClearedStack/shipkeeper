@@ -3,6 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net"
 	"net/http"
@@ -16,6 +25,7 @@ import (
 	"github.com/ClearedStack/shipkeeper/internal/example"
 	"github.com/ClearedStack/shipkeeper/internal/golden"
 	"github.com/ClearedStack/shipkeeper/internal/kubetest"
+	"github.com/ClearedStack/shipkeeper/internal/lazarette"
 	"github.com/ClearedStack/shipkeeper/internal/muster"
 )
 
@@ -116,13 +126,65 @@ func TestServeOnceEndToEnd(t *testing.T) {
 	})
 	defer plainforgeSrv.Close()
 
+	cosignPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubDER, err := x509.MarshalPKIXPublicKey(&cosignPriv.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cosignPubFile := filepath.Join(t.TempDir(), "cosign.pub")
+	if err := os.WriteFile(cosignPubFile, pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sigPayload, _ := json.Marshal(map[string]any{
+		"critical": map[string]any{
+			"identity": map[string]any{"docker-reference": "lazarette.clearedstack.svc.cluster.local:5000/assay"},
+			"image":    map[string]any{"docker-manifest-digest": assayDigest},
+			"type":     "cosign container image signature",
+		},
+	})
+	pSum := sha256.Sum256(sigPayload)
+	sigASN1, err := ecdsa.SignASN1(rand.Reader, cosignPriv, pSum[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	pDigest := "sha256:" + hex.EncodeToString(pSum[:])
+	sigManifest, _ := json.Marshal(map[string]any{
+		"schemaVersion": 2,
+		"mediaType":     lazarette.OCIManifestMediaType,
+		"artifactType":  lazarette.SimpleSigningMediaType,
+		"layers": []any{map[string]any{
+			"mediaType":   lazarette.SimpleSigningMediaType,
+			"digest":      pDigest,
+			"annotations": map[string]string{lazarette.SignatureAnnotation: base64.StdEncoding.EncodeToString(sigASN1)},
+		}},
+	})
+	mSum := sha256.Sum256(sigManifest)
+	mDigest := "sha256:" + hex.EncodeToString(mSum[:])
+
 	lazaretteSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodHead && r.URL.Path == "/v2/assay/manifests/"+assayDigest {
+		switch {
+		case r.Method == http.MethodHead && r.URL.Path == "/v2/assay/manifests/"+assayDigest:
 			w.Header().Set("Docker-Content-Digest", assayDigest)
 			w.WriteHeader(http.StatusOK)
-			return
+		case r.Method == http.MethodGet && r.URL.Path == "/v2/assay/referrers/"+assayDigest:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"schemaVersion": 2,
+				"manifests": []any{map[string]any{
+					"mediaType":    lazarette.OCIManifestMediaType,
+					"digest":       mDigest,
+					"artifactType": lazarette.SimpleSigningMediaType,
+				}},
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/v2/assay/manifests/"+mDigest:
+			_, _ = w.Write(sigManifest)
+		case r.Method == http.MethodGet && r.URL.Path == "/v2/assay/blobs/"+pDigest:
+			_, _ = w.Write(sigPayload)
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer lazaretteSrv.Close()
 
@@ -151,6 +213,7 @@ func TestServeOnceEndToEnd(t *testing.T) {
 		"-listen", "127.0.0.1:0",
 		"-plainforge-url", plainforgeSrv.URL,
 		"-lazarette-url", lazaretteSrv.URL,
+		"-cosign-pub-file", cosignPubFile,
 		"-muster-url", musterSrv.URL,
 		"-kube-url", cluster.URL,
 		"-kube-token-file", tokFile,

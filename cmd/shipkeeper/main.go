@@ -108,6 +108,7 @@ func runServe(ctx context.Context, args []string, _, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	plainforgeURL := fs.String("plainforge-url", envOr("PLAINFORGE_URL", "http://plainforge.clearedstack.svc.cluster.local"), "Plainforge base URL")
 	lazaretteURL := fs.String("lazarette-url", envOr("LAZARETTE_URL", "http://lazarette.clearedstack.svc.cluster.local:5000"), "Lazarette HTTP API URL")
+	cosignPubFile := fs.String("cosign-pub-file", os.Getenv("COSIGN_PUB_FILE"), "file holding the ECDSA P-256 cosign public key PEM")
 	registryHost := fs.String("registry", envOr("LAZARETTE_REGISTRY", "lazarette.clearedstack.svc.cluster.local:5000"), "registry host images are pulled from")
 	musterURL := fs.String("muster-url", envOr("MUSTER_URL", "http://muster.clearedstack.svc.cluster.local:8080"), "Muster HTTP API URL")
 	musterTokenFile := fs.String("muster-token-file", os.Getenv("MUSTER_TOKEN_FILE"), "file holding the bearer token presented to Muster")
@@ -130,6 +131,7 @@ func runServe(ctx context.Context, args []string, _, stderr io.Writer) int {
 	rec, err := buildServe(serveConfig{
 		plainforgeURL:   *plainforgeURL,
 		lazaretteURL:    *lazaretteURL,
+		cosignPubFile:   *cosignPubFile,
 		registryHost:    *registryHost,
 		musterURL:       *musterURL,
 		musterTokenFile: *musterTokenFile,
@@ -181,6 +183,7 @@ func runServe(ctx context.Context, args []string, _, stderr io.Writer) int {
 type serveConfig struct {
 	plainforgeURL   string
 	lazaretteURL    string
+	cosignPubFile   string
 	registryHost    string
 	musterURL       string
 	musterTokenFile string
@@ -196,6 +199,15 @@ func buildServe(cfg serveConfig) (*reconcile.Reconciler, error) {
 	if cfg.plainforgeURL == "" || cfg.lazaretteURL == "" || cfg.musterURL == "" ||
 		!manifest.RegistryRE.MatchString(cfg.registryHost) || cfg.interval <= 0 || cfg.timeout <= 0 {
 		return nil, errs.Config
+	}
+	if cfg.cosignPubFile != "" {
+		rawKey, err := os.ReadFile(cfg.cosignPubFile)
+		if err != nil {
+			return nil, errs.Config
+		}
+		if _, err := lazarette.ParsePublicKey(rawKey); err != nil {
+			return nil, err
+		}
 	}
 	kubeClient, resolvedTokenFile, err := buildKubeClient(cfg.kubeURL, cfg.kubeTokenFile, cfg.kubeCAFile, cfg.timeout)
 	if err != nil {
@@ -224,8 +236,9 @@ func buildServe(cfg serveConfig) (*reconcile.Reconciler, error) {
 			HTTP:    sharedHTTP,
 		},
 		Lazarette: &lazarette.Client{
-			BaseURL: cfg.lazaretteURL,
-			HTTP:    sharedHTTP,
+			BaseURL:       cfg.lazaretteURL,
+			HTTP:          sharedHTTP,
+			PublicKeyFile: cfg.cosignPubFile,
 		},
 		ContractMuster: &muster.Client{
 			BaseURL:   cfg.musterURL,
